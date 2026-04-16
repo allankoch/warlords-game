@@ -1,0 +1,27 @@
+# Build outputs
+bin/
+obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# IDE folders
+.vs/
+.idea/
+
+# ASP.NET / tooling
+*.cache
+*.pidb
+*.svclog
+*.pdb
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
