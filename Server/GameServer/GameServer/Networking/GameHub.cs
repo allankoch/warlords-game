@@ -6,8 +6,10 @@ namespace GameServer.Networking;
 public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
 {
     private const string PlayerIdKey = "playerId";
+    private const string DisplayNameKey = "displayName";
     private const string GameIdKey = "gameId";
     private const string ReconnectTokenQuery = "reconnectToken";
+    private const string DisplayNameQuery = "displayName";
 
     public override async Task OnConnectedAsync()
     {
@@ -17,8 +19,15 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
             reconnectToken = null;
         }
 
-        var connected = await gameSession.ConnectAsync(Context.ConnectionId, reconnectToken, Context.ConnectionAborted);
+        var displayName = Context.GetHttpContext()?.Request.Query[DisplayNameQuery].ToString();
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            displayName = null;
+        }
+
+        var connected = await gameSession.ConnectAsync(Context.ConnectionId, reconnectToken, displayName, Context.ConnectionAborted);
         Context.Items[PlayerIdKey] = connected.PlayerId;
+        Context.Items[DisplayNameKey] = connected.DisplayName;
 
         await Clients.Caller.Connected(connected);
         await base.OnConnectedAsync();
@@ -27,7 +36,7 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         var gameId = GetCurrentGameId();
-        var state = await gameSession.DisconnectAsync(Context.ConnectionId, Context.ConnectionAborted);
+        var state = await gameSession.DisconnectAsync(Context.ConnectionId, CancellationToken.None);
 
         if (gameId is not null && state is not null)
         {
@@ -37,16 +46,21 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
         await base.OnDisconnectedAsync(exception);
     }
 
-    public async Task JoinGame(JoinGameRequestDto request)
+    public async Task<JoinGameResultDto> JoinGame(JoinGameRequestDto request)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (string.IsNullOrWhiteSpace(request.GameId))
         {
-            throw new HubException("GameIdRequired");
+            return new JoinGameResultDto(false, "GameIdRequired", null);
         }
 
         var connectionId = Context.ConnectionId;
-        var playerId = GetPlayerId() ?? throw new HubException("NotConnected");
+        var playerId = GetPlayerId();
+        if (playerId is null)
+        {
+            return new JoinGameResultDto(false, "NotConnected", null);
+        }
+
         var previousGameId = GetCurrentGameId();
 
         if (previousGameId is not null && !string.Equals(previousGameId, request.GameId, StringComparison.Ordinal))
@@ -54,13 +68,107 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
             await Groups.RemoveFromGroupAsync(connectionId, GameGroup(previousGameId), Context.ConnectionAborted);
         }
 
+        GameStateDto state;
+        try
+        {
+            state = await gameSession.JoinGameAsync(connectionId, request.GameId, Context.ConnectionAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new JoinGameResultDto(false, ex.Message, null);
+        }
+
         await Groups.AddToGroupAsync(connectionId, GameGroup(request.GameId), Context.ConnectionAborted);
         Context.Items[GameIdKey] = request.GameId;
-
-        var state = await gameSession.JoinGameAsync(connectionId, request.GameId, Context.ConnectionAborted);
+        Context.Items[DisplayNameKey] = state.Players.FirstOrDefault(player => string.Equals(player.PlayerId, playerId, StringComparison.Ordinal))?.DisplayName;
         await Clients.Caller.GameState(state);
         await Clients.OthersInGroup(GameGroup(request.GameId)).GameState(state);
-        await Clients.OthersInGroup(GameGroup(request.GameId)).PlayerJoined(new PlayerJoinedDto(request.GameId, playerId));
+        await Clients.OthersInGroup(GameGroup(request.GameId)).PlayerJoined(new PlayerJoinedDto(request.GameId, playerId, GetDisplayName()));
+        return new JoinGameResultDto(true, null, state);
+    }
+
+    public async Task<ResumeGameResultDto> ResumeGame(JoinGameRequestDto request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.GameId))
+        {
+            return new ResumeGameResultDto(false, "GameIdRequired", null);
+        }
+
+        var connectionId = Context.ConnectionId;
+        var playerId = GetPlayerId();
+        if (playerId is null)
+        {
+            return new ResumeGameResultDto(false, "NotConnected", null);
+        }
+
+        var previousGameId = GetCurrentGameId();
+        if (previousGameId is not null && !string.Equals(previousGameId, request.GameId, StringComparison.Ordinal))
+        {
+            await Groups.RemoveFromGroupAsync(connectionId, GameGroup(previousGameId), Context.ConnectionAborted);
+        }
+
+        GameStateDto state;
+        try
+        {
+            state = await gameSession.JoinGameAsync(connectionId, request.GameId, Context.ConnectionAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ResumeGameResultDto(false, ex.Message, null);
+        }
+
+        await Groups.AddToGroupAsync(connectionId, GameGroup(request.GameId), Context.ConnectionAborted);
+        Context.Items[GameIdKey] = request.GameId;
+        Context.Items[DisplayNameKey] = state.Players.FirstOrDefault(player => string.Equals(player.PlayerId, playerId, StringComparison.Ordinal))?.DisplayName;
+        await Clients.Caller.GameState(state);
+        await Clients.OthersInGroup(GameGroup(request.GameId)).GameState(state);
+        return new ResumeGameResultDto(true, null, state);
+    }
+
+    public async Task<ClaimSeatResultDto> ClaimSeat(ClaimSeatRequestDto request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.GameId))
+        {
+            return new ClaimSeatResultDto(false, "GameIdRequired", null);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.SeatId))
+        {
+            return new ClaimSeatResultDto(false, "SeatIdRequired", null);
+        }
+
+        var connectionId = Context.ConnectionId;
+        var playerId = GetPlayerId();
+        if (playerId is null)
+        {
+            return new ClaimSeatResultDto(false, "NotConnected", null);
+        }
+
+        var previousGameId = GetCurrentGameId();
+        if (previousGameId is not null && !string.Equals(previousGameId, request.GameId, StringComparison.Ordinal))
+        {
+            await Groups.RemoveFromGroupAsync(connectionId, GameGroup(previousGameId), Context.ConnectionAborted);
+        }
+
+        GameStateDto state;
+        try
+        {
+            state = await gameSession.ClaimSeatAsync(connectionId, request.GameId, request.SeatId, Context.ConnectionAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ClaimSeatResultDto(false, ex.Message, null);
+        }
+
+        await Groups.AddToGroupAsync(connectionId, GameGroup(request.GameId), Context.ConnectionAborted);
+        Context.Items[GameIdKey] = request.GameId;
+        Context.Items[DisplayNameKey] = state.Players.FirstOrDefault(player => string.Equals(player.PlayerId, playerId, StringComparison.Ordinal))?.DisplayName;
+        await Clients.Caller.GameState(state);
+        await Clients.OthersInGroup(GameGroup(request.GameId)).GameState(state);
+        await Clients.OthersInGroup(GameGroup(request.GameId)).PlayerJoined(new PlayerJoinedDto(request.GameId, playerId, GetDisplayName()));
+        return new ClaimSeatResultDto(true, null, state);
     }
 
     public async Task<IReadOnlyList<MatchSummaryDto>> ListMatches(int limit = 50)
@@ -69,15 +177,27 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
         return results;
     }
 
-    public async Task JoinByCode(JoinByCodeRequestDto request)
+    public async Task<ConnectedDto> GetConnectionInfo()
+    {
+        try
+        {
+            return await gameSession.GetConnectionInfoAsync(Context.ConnectionId, Context.ConnectionAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new HubException(ex.Message);
+        }
+    }
+
+    public async Task<JoinGameResultDto> JoinByCode(JoinByCodeRequestDto request)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (string.IsNullOrWhiteSpace(request.Code))
         {
-            throw new HubException("CodeRequired");
+            return new JoinGameResultDto(false, "CodeRequired", null);
         }
 
-        await JoinGame(new JoinGameRequestDto(request.Code));
+        return await JoinGame(new JoinGameRequestDto(request.Code));
     }
 
     public async Task CreateMatch(CreateMatchRequestDto request)
@@ -95,12 +215,10 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
             await Groups.RemoveFromGroupAsync(connectionId, GameGroup(previousGameId), Context.ConnectionAborted);
         }
 
+        var state = await gameSession.CreateAndJoinMatchAsync(connectionId, request, Context.ConnectionAborted);
         await Groups.AddToGroupAsync(connectionId, GameGroup(request.GameId), Context.ConnectionAborted);
         Context.Items[GameIdKey] = request.GameId;
-
-        await gameSession.CreateMatchAsync(connectionId, request, Context.ConnectionAborted);
-
-        var state = await gameSession.JoinGameAsync(connectionId, request.GameId, Context.ConnectionAborted);
+        Context.Items[DisplayNameKey] = state.Players.FirstOrDefault(player => string.Equals(player.PlayerId, GetPlayerId(), StringComparison.Ordinal))?.DisplayName;
         await Clients.Caller.GameState(state);
         await Clients.OthersInGroup(GameGroup(request.GameId)).GameState(state);
     }
@@ -127,7 +245,16 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
             throw new HubException("NotInGame");
         }
 
-        var state = await gameSession.StartMatchAsync(Context.ConnectionId, gameId, Context.ConnectionAborted);
+        GameStateDto state;
+        try
+        {
+            state = await gameSession.StartMatchAsync(Context.ConnectionId, gameId, Context.ConnectionAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new HubException(ex.Message);
+        }
+
         await Clients.Group(GameGroup(gameId)).GameState(state);
     }
 
@@ -166,7 +293,7 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
 
         if (playerId is not null)
         {
-            await Clients.Group(GameGroup(gameId)).PlayerLeft(new PlayerLeftDto(gameId, playerId));
+            await Clients.Group(GameGroup(gameId)).PlayerLeft(new PlayerLeftDto(gameId, playerId, GetDisplayName()));
         }
     }
 
@@ -197,8 +324,13 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
     private string? GetPlayerId() =>
         Context.Items.TryGetValue(PlayerIdKey, out var value) ? value as string : null;
 
+    private string? GetDisplayName() =>
+        Context.Items.TryGetValue(DisplayNameKey, out var value) ? value as string : null;
+
     private string? GetCurrentGameId() =>
         Context.Items.TryGetValue(GameIdKey, out var value) ? value as string : null;
 
     private static string GameGroup(string gameId) => $"game:{gameId}";
 }
+
+

@@ -8,8 +8,20 @@ using GameServer.Protocol;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ??
+                     ["http://localhost:3000", "http://localhost:4173", "http://localhost:5173"];
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Client", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IMapProvider, MapCatalog>();
@@ -31,37 +43,29 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+app.UseCors("Client");
 
 app.MapHub<GameHub>("/hubs/game");
-
-var summaries = new[]
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/maps/{mapId}", (string mapId, IMapProvider maps) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    var map = maps.Get(mapId);
+    var palette = map.TileDefinitions.Values
+        .OrderBy(tile => tile.TileId)
+        .Select(tile => new MapTileDto(tile.TileId, tile.Type, tile.Owner, tile.IsBlocked))
+        .ToArray();
+    var spawns = map.SpawnTopLeftByOwner
+        .OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+        .Select(kvp => new SpawnPointDto(kvp.Key, kvp.Value.X, kvp.Value.Y))
+        .ToArray();
 
-app.MapGet("/weatherforecast", () =>
-    {
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-        return forecast;
-    })
-    .WithName("GetWeatherForecast")
-    .WithOpenApi();
+    return Results.Ok(new MapViewDto(map.MapId, map.Width, map.Height, map.Tiles, palette, spawns));
+});
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

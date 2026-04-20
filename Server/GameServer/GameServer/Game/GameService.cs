@@ -15,8 +15,28 @@ public sealed class GameService(
     private readonly ConcurrentDictionary<string, ConnectionInfo> _connections = new();
     private readonly ConcurrentDictionary<string, GameSession> _sessions = new();
 
-    public Task<ConnectedDto> ConnectAsync(string connectionId, string? reconnectToken, CancellationToken cancellationToken) =>
-        ConnectInternalAsync(connectionId, reconnectToken, cancellationToken);
+    public Task<ConnectedDto> ConnectAsync(string connectionId, string? reconnectToken, string? displayName, CancellationToken cancellationToken) =>
+        ConnectInternalAsync(connectionId, reconnectToken, displayName, cancellationToken);
+
+    public async Task<ConnectedDto> GetConnectionInfoAsync(string connectionId, CancellationToken cancellationToken)
+    {
+        if (!_connections.TryGetValue(connectionId, out var connection))
+        {
+            throw new InvalidOperationException("UnknownPlayer");
+        }
+
+        var identity = await identityStore.TryGetByPlayerIdAsync(connection.PlayerId, cancellationToken);
+        if (identity is null)
+        {
+            throw new InvalidOperationException("UnknownPlayer");
+        }
+
+        return new ConnectedDto(
+            connection.PlayerId,
+            identity.ReconnectToken,
+            connection.DisplayName ?? identity.DisplayName,
+            connection.GameId ?? identity.ActiveGameId);
+    }
 
     public async Task<GameStateDto?> DisconnectAsync(string connectionId, CancellationToken cancellationToken)
     {
@@ -115,6 +135,80 @@ public sealed class GameService(
         return snapshot;
     }
 
+    public async Task<GameStateDto> CreateAndJoinMatchAsync(string connectionId, CreateMatchRequestDto request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (string.IsNullOrWhiteSpace(request.GameId))
+        {
+            throw new InvalidOperationException("GameIdRequired");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.MapId))
+        {
+            throw new InvalidOperationException("MapIdRequired");
+        }
+
+        if (!_connections.TryGetValue(connectionId, out var connection))
+        {
+            throw new InvalidOperationException("UnknownPlayer");
+        }
+
+        if (request.MinPlayers <= 0 || request.MaxPlayers <= 0 || request.MinPlayers > request.MaxPlayers)
+        {
+            throw new InvalidOperationException("InvalidPlayerLimits");
+        }
+
+        if (request.MaxPlayers > 8)
+        {
+            throw new InvalidOperationException("MaxPlayersExceeded");
+        }
+
+        var map = mapProvider.Get(request.MapId);
+        var requiredOwners = new[] { "white", "red", "green", "black", "orange", "lightblue", "darkblue", "yellow" };
+        for (var i = 0; i < request.MaxPlayers; i++)
+        {
+            if (!map.SpawnTopLeftByOwner.ContainsKey(requiredOwners[i]))
+            {
+                throw new InvalidOperationException("MissingSpawn");
+            }
+        }
+
+        var settings = new MatchSettings(
+            request.MapId,
+            request.MinPlayers,
+            request.MaxPlayers,
+            request.AutoStart,
+            request.TurnTimeLimitSeconds,
+            request.DisconnectGraceSeconds);
+        var session = new GameSession(new Match(request.GameId, settings, connection.PlayerId, gameEngine));
+        if (!_sessions.TryAdd(request.GameId, session))
+        {
+            throw new InvalidOperationException("GameAlreadyExists");
+        }
+
+        PersistedMatchSnapshot persisted;
+        GameStateDto state;
+        try
+        {
+            lock (session.Sync)
+            {
+                session.Match.AddOrReconnectPlayer(connection.PlayerId, connection.DisplayName);
+                state = session.Match.Snapshot();
+                persisted = session.Match.CreatePersistedSnapshot();
+            }
+        }
+        catch
+        {
+            _sessions.TryRemove(request.GameId, out _);
+            throw;
+        }
+
+        connection.GameId = request.GameId;
+        await matchStore.SaveSnapshotAsync(persisted, cancellationToken);
+        await identityStore.SetActiveGameAsync(connection.PlayerId, request.GameId, cancellationToken);
+        return state;
+    }
+
     public async Task<IReadOnlyList<MatchSummaryDto>> ListMatchesAsync(string connectionId, int limit, CancellationToken cancellationToken)
     {
         if (!_connections.ContainsKey(connectionId))
@@ -133,7 +227,7 @@ public sealed class GameService(
                 dto.Phase,
                 snapshot.Version,
                 snapshot.ServerActionSequence,
-                dto.Players.Count,
+                dto.Players?.Count ?? dto.Seats?.Count(item => !string.IsNullOrWhiteSpace(item.ClaimedByPlayerId)) ?? 0,
                 snapshot.SavedAt));
         }
 
@@ -147,37 +241,49 @@ public sealed class GameService(
             throw new InvalidOperationException("Unknown connection.");
         }
 
-        if (!_sessions.TryGetValue(gameId, out var session))
-        {
-            var loaded = await matchStore.LoadSnapshotAsync(gameId, cancellationToken);
-            if (loaded is null)
-            {
-                throw new InvalidOperationException("UnknownGame");
-            }
-
-            var loadedSession = new GameSession(Match.FromPersisted(loaded, gameEngine));
-            session = _sessions.GetOrAdd(gameId, _ => loadedSession);
-        }
-
-        connection.GameId = gameId;
+        var session = await GetOrLoadSessionAsync(gameId, cancellationToken);
 
         PersistedMatchSnapshot persisted;
         GameStateDto state;
         lock (session.Sync)
         {
-            var snapshot = session.Match.Snapshot();
-            if (string.Equals(snapshot.Phase, GameServer.Game.Engine.MatchPhases.InProgress, StringComparison.Ordinal) &&
-                !snapshot.Players.Any(p => string.Equals(p.PlayerId, connection.PlayerId, StringComparison.Ordinal)))
-            {
-                throw new InvalidOperationException("MatchAlreadyStarted");
-            }
-
-            session.Match.AddOrReconnectPlayer(connection.PlayerId);
+            session.Match.AddOrReconnectPlayer(connection.PlayerId, connection.DisplayName);
             state = session.Match.Snapshot();
             persisted = session.Match.CreatePersistedSnapshot();
         }
 
+        connection.GameId = gameId;
         await matchStore.SaveSnapshotAsync(persisted, cancellationToken);
+        await identityStore.SetActiveGameAsync(connection.PlayerId, gameId, cancellationToken);
+        return state;
+    }
+
+    public async Task<GameStateDto> ClaimSeatAsync(string connectionId, string gameId, string seatId, CancellationToken cancellationToken)
+    {
+        if (!_connections.TryGetValue(connectionId, out var connection))
+        {
+            throw new InvalidOperationException("Unknown connection.");
+        }
+
+        if (string.IsNullOrWhiteSpace(seatId))
+        {
+            throw new InvalidOperationException("SeatIdRequired");
+        }
+
+        var session = await GetOrLoadSessionAsync(gameId, cancellationToken);
+
+        PersistedMatchSnapshot persisted;
+        GameStateDto state;
+        lock (session.Sync)
+        {
+            session.Match.ClaimSeat(connection.PlayerId, connection.DisplayName, seatId);
+            state = session.Match.Snapshot();
+            persisted = session.Match.CreatePersistedSnapshot();
+        }
+
+        connection.GameId = gameId;
+        await matchStore.SaveSnapshotAsync(persisted, cancellationToken);
+        await identityStore.SetActiveGameAsync(connection.PlayerId, gameId, cancellationToken);
         return state;
     }
 
@@ -222,7 +328,16 @@ public sealed class GameService(
         {
             lock (session.Sync)
             {
-                session.Match.RemovePlayer(connection.PlayerId);
+                var snapshot = session.Match.Snapshot();
+                if (string.Equals(snapshot.Phase, MatchPhases.InProgress, StringComparison.Ordinal))
+                {
+                    session.Match.SetConnected(connection.PlayerId, false);
+                }
+                else
+                {
+                    session.Match.RemovePlayer(connection.PlayerId);
+                }
+
                 state = session.Match.Snapshot();
                 persisted = session.Match.CreatePersistedSnapshot();
             }
@@ -234,6 +349,8 @@ public sealed class GameService(
         {
             await matchStore.SaveSnapshotAsync(persisted, cancellationToken);
         }
+
+        await identityStore.SetActiveGameAsync(connection.PlayerId, null, cancellationToken);
 
         return state;
     }
@@ -378,9 +495,10 @@ public sealed class GameService(
         return result;
     }
 
-    private sealed class ConnectionInfo(string playerId)
+    private sealed class ConnectionInfo(string playerId, string? displayName)
     {
         public string PlayerId { get; } = playerId;
+        public string? DisplayName { get; set; } = displayName;
         public string? GameId { get; set; }
     }
 
@@ -392,18 +510,18 @@ public sealed class GameService(
         public ConcurrentDictionary<string, int> LastClientSequenceByPlayer { get; } = new();
     }
 
-    private async Task<ConnectedDto> ConnectInternalAsync(string connectionId, string? reconnectToken, CancellationToken cancellationToken)
+    private async Task<ConnectedDto> ConnectInternalAsync(string connectionId, string? reconnectToken, string? displayName, CancellationToken cancellationToken)
     {
-        var identity = await identityStore.ResolveAsync(reconnectToken, cancellationToken);
-        _connections[connectionId] = new ConnectionInfo(identity.PlayerId);
-        return new ConnectedDto(identity.PlayerId, identity.ReconnectToken);
+        var identity = await identityStore.ResolveAsync(reconnectToken, displayName, cancellationToken);
+        _connections[connectionId] = new ConnectionInfo(identity.PlayerId, identity.DisplayName);
+        return new ConnectedDto(identity.PlayerId, identity.ReconnectToken, identity.DisplayName, identity.ActiveGameId);
     }
 
     public async Task<IReadOnlyList<(string GameId, GameStateDto State, bool IsSystemEndTurn)>> TickAsync(CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var updates = new List<(string GameId, GameStateDto State, bool IsSystemEndTurn)>();
-        var persists = new List<(PersistedMatchSnapshot Snapshot, MatchActionRecord? ActionRecord)>();
+        var persists = new List<(PersistedMatchSnapshot Snapshot, MatchActionRecord? ActionRecord, IReadOnlyList<string> RemovedPlayerIds)>();
 
         foreach (var kvp in _sessions)
         {
@@ -413,10 +531,14 @@ public sealed class GameService(
             PersistedMatchSnapshot? persisted = null;
             MatchActionRecord? record = null;
             GameStateDto? state = null;
+            IReadOnlyList<string> removedPlayerIds = [];
             var isSystemEndTurn = false;
 
             lock (session.Sync)
             {
+                var previousPlayers = session.Match.Snapshot().Players
+                    .Select(player => player.PlayerId)
+                    .ToHashSet(StringComparer.Ordinal);
                 var tick = session.Match.Tick(now);
                 if (!tick.Changed)
                 {
@@ -424,6 +546,9 @@ public sealed class GameService(
                 }
 
                 state = session.Match.Snapshot();
+                removedPlayerIds = previousPlayers
+                    .Except(state.Players.Select(player => player.PlayerId), StringComparer.Ordinal)
+                    .ToArray();
                 persisted = session.Match.CreatePersistedSnapshot();
                 isSystemEndTurn = tick.IsSystemEndTurn;
 
@@ -442,7 +567,7 @@ public sealed class GameService(
 
             if (persisted is not null)
             {
-                persists.Add((persisted, record));
+                persists.Add((persisted, record, removedPlayerIds));
             }
 
             if (state is not null)
@@ -461,10 +586,38 @@ public sealed class GameService(
             {
                 await matchStore.SaveSnapshotAsync(item.Snapshot, cancellationToken);
             }
+
+            foreach (var removedPlayerId in item.RemovedPlayerIds)
+            {
+                var identity = await identityStore.TryGetByPlayerIdAsync(removedPlayerId, cancellationToken);
+                if (string.Equals(identity?.ActiveGameId, item.Snapshot.GameId, StringComparison.Ordinal))
+                {
+                    await identityStore.SetActiveGameAsync(removedPlayerId, null, cancellationToken);
+                }
+            }
         }
 
         return updates;
     }
 
+    private async Task<GameSession> GetOrLoadSessionAsync(string gameId, CancellationToken cancellationToken)
+    {
+        if (_sessions.TryGetValue(gameId, out var existing))
+        {
+            return existing;
+        }
+
+        var loaded = await matchStore.LoadSnapshotAsync(gameId, cancellationToken);
+        if (loaded is null)
+        {
+            throw new InvalidOperationException("UnknownGame");
+        }
+
+        var loadedSession = new GameSession(Match.FromPersisted(loaded, gameEngine));
+        return _sessions.GetOrAdd(gameId, _ => loadedSession);
+    }
 
 }
+
+
+

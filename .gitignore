@@ -1,0 +1,23 @@
+# Repo-wide editor and OS noise
+.idea/
+.vs/
+.DS_Store
+Thumbs.db
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Frontend outputs
+Client/node_modules/
+Client/dist/
+Client/build/
+Client/coverage/
+Client/.vite/
+Client/.next/
+Client/.turbo/
+Client/.cache/

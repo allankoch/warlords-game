@@ -1,0 +1,18 @@
+{
+  "types": [
+    {
+      "ids": [ 1 ],
+      "type": "grassland"
+    },
+    {
+      "ids": [ 2, 3, 4, 5 ],
+      "type": "castle",
+      "owner": "white"
+    },
+    {
+      "ids": [ 6, 7, 8, 9 ],
+      "type": "castle",
+      "owner": "red"
+    }
+  ]
+}

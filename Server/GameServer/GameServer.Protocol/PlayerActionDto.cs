@@ -6,6 +6,7 @@ namespace GameServer.Protocol;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(EndTurnActionDto), "endTurn")]
 [JsonDerivedType(typeof(MoveEntityActionDto), "move")]
+[JsonDerivedType(typeof(AttackEntityActionDto), "attack")]
 public abstract record PlayerActionDto
 {
     public required string ActionId { get; init; }
@@ -26,3 +27,8 @@ public sealed record MoveEntityActionDto : PlayerActionDto
     public int Y { get; init; }
 }
 
+public sealed record AttackEntityActionDto : PlayerActionDto
+{
+    public required string EntityId { get; init; }
+    public required string TargetEntityId { get; init; }
+}

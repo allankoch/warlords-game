@@ -6,16 +6,27 @@ public record MatchSnapshotDto(
     int SchemaVersion,
     string GameId,
     MatchSettingsDto Settings,
-    string HostPlayerId,
     string Phase,
-    IReadOnlyList<PlayerPresenceDto> Players,
-    IReadOnlyList<PlayerReadyDto> Ready,
-    IReadOnlyList<PlayerSlotDto> Slots,
-    IReadOnlyList<EntityStateDto> Entities,
     TurnStateDto Turns,
     long? TurnEndsAtUnixSeconds,
-    IReadOnlyList<PlayerDisconnectDto> DisconnectedSince,
-    PlayerActionDto? LastAction);
+    PlayerActionDto? LastAction,
+    string? HostSeatId = null,
+    IReadOnlyList<SeatSnapshotDto>? Seats = null,
+    IReadOnlyList<EntityStateDto>? Entities = null,
+    string? HostPlayerId = null,
+    IReadOnlyList<PlayerPresenceDto>? Players = null,
+    IReadOnlyList<PlayerReadyDto>? Ready = null,
+    IReadOnlyList<PlayerSlotDto>? Slots = null,
+    IReadOnlyList<PlayerDisconnectDto>? DisconnectedSince = null);
+
+public record SeatSnapshotDto(
+    string SeatId,
+    string? ClaimedByPlayerId,
+    string? DisplayName,
+    bool IsConnected,
+    bool IsReady,
+    long? DisconnectedSinceUnixSeconds,
+    bool IsActive);
 
 public record MatchSettingsDto(string MapId, int MinPlayers, int MaxPlayers, bool AutoStart, int TurnTimeLimitSeconds, int DisconnectGraceSeconds);
 

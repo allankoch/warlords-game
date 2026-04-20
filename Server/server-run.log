@@ -1,0 +1,280 @@
+Using launch settings from c:\Code\Warlords\Server\GameServer\GameServer\Properties\launchSettings.json...
+Building...
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5118
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: c:\Code\Warlords\Server\GameServer\GameServer
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection JVKN6BYqXhMWNQZOvlHeeg.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection T8uftrpUvlfd9WZrhh2trQ.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection L4-v8CIe4yXzhMFyBkTrRQ.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection WsNbrnE8TML9Lxqvd_tETQ.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection amRpghrCwbpGl-xbPqVlzw.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.SignalR.HubConnectionHandler[1]
+      Error when dispatching 'OnDisconnectedAsync' on hub.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection Mr18FB9vksPDYX0fhbIDkg.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection c-IA5_8x3WoNBFYRpZ5ChQ.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection 08mt5gW6dIZNfUlqffQI5A.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection 228gEsfT_vG_5G3VaKZjYA.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)
+fail: Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager[3]
+      Failed disposing connection cmplUJZozuxY9ifIeONStQ.
+      System.Threading.Tasks.TaskCanceledException: A task was canceled.
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.OpenAsync(CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 211
+         at GameServer.Persistence.Sqlite.SqliteGameRepository.SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Persistence\Sqlite\SqliteGameRepository.cs:line 57
+         at GameServer.Game.GameService.DisconnectAsync(String connectionId, CancellationToken cancellationToken) in c:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs:line 41
+         at GameServer.Networking.GameHub.OnDisconnectedAsync(Exception exception) in c:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs:line 30
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher`1.OnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.HubOnDisconnectedAsync(HubConnectionContext connection, Exception exception)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.RunHubAsync(HubConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.SignalR.HubConnectionHandler`1.OnConnectedAsync(ConnectionContext connection)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.ExecuteApplication(ConnectionDelegate connectionDelegate)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.WaitOnTasks(Task applicationTask, Task transportTask, Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionContext.DisposeAsync(Boolean closeGracefully)
+         at Microsoft.AspNetCore.Http.Connections.Internal.HttpConnectionManager.DisposeAndRemoveAsync(HttpConnectionContext connection, Boolean closeGracefully, HttpConnectionStopStatus status)

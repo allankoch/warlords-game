@@ -15,7 +15,7 @@ public sealed class GameEngineRulesTests
     {
         var state = CreateStartedTwoPlayerMatch(out var p1, out var p2);
 
-        Assert.AreEqual(p1, state.Turns.CurrentPlayerId);
+        Assert.AreEqual(p1, state.CurrentTurnPlayerId);
 
         var result = _engine.ApplyAction(state, p2, new EndTurnActionDto { ActionId = "a1", ClientSequence = 1 });
         Assert.IsFalse(result.Success);
@@ -29,25 +29,30 @@ public sealed class GameEngineRulesTests
 
         var r1 = _engine.ApplyAction(state, p1, new EndTurnActionDto { ActionId = "a1", ClientSequence = 1 });
         state = ExpectOk(r1);
-        Assert.AreEqual(p2, state.Turns.CurrentPlayerId);
+        Assert.AreEqual(p2, state.CurrentTurnPlayerId);
         Assert.AreEqual(2, state.Turns.TurnNumber);
 
         var r2 = _engine.ApplyAction(state, p2, new EndTurnActionDto { ActionId = "a2", ClientSequence = 1 });
         state = ExpectOk(r2);
-        Assert.AreEqual(p1, state.Turns.CurrentPlayerId);
+        Assert.AreEqual(p1, state.CurrentTurnPlayerId);
         Assert.AreEqual(3, state.Turns.TurnNumber);
     }
 
     [TestMethod]
-    public void Disconnect_CurrentTurnAutoAdvances()
+    public void Disconnect_CurrentTurn_IsPreservedDuringReconnectGrace()
     {
         var state = CreateStartedTwoPlayerMatch(out var p1, out var p2);
-        Assert.AreEqual(p1, state.Turns.CurrentPlayerId);
+        Assert.AreEqual(p1, state.CurrentTurnPlayerId);
 
         var r = _engine.SetConnected(state, p1, isConnected: false);
         state = ExpectOk(r);
 
-        Assert.AreEqual(p2, state.Turns.CurrentPlayerId);
+        Assert.AreEqual(p1, state.CurrentTurnPlayerId);
+        Assert.AreEqual(1, state.Turns.TurnNumber);
+        Assert.IsNull(state.TurnEndsAtUnixSeconds);
+
+        var actions = _engine.GetAvailableActions(state);
+        Assert.AreEqual(0, actions.Count);
     }
 
     [TestMethod]
@@ -111,7 +116,7 @@ public sealed class GameEngineRulesTests
 
         var end = _engine.ApplyAction(state, p1, new EndTurnActionDto { ActionId = "a1", ClientSequence = 1 });
         state = ExpectOk(end);
-        Assert.AreEqual(p2, state.Turns.CurrentPlayerId);
+        Assert.AreEqual(p2, state.CurrentTurnPlayerId);
 
         var r = _engine.ApplyAction(state, p2, new MoveEntityActionDto
         {
@@ -144,6 +149,55 @@ public sealed class GameEngineRulesTests
         Assert.AreEqual("UnknownEntity", r.Error);
     }
 
+    [TestMethod]
+    public void AvailableActions_IncludeAdjacentAttackTargets()
+    {
+        var state = CreateStartedTwoPlayerMatch(out var p1, out var p2);
+
+        var actions = _engine.GetAvailableActions(state);
+        var attack = actions.OfType<AvailableAttackActionDto>().SingleOrDefault();
+
+        Assert.IsNotNull(attack);
+        Assert.AreEqual($"unit-{p1}", attack.EntityId);
+        Assert.AreEqual($"unit-{p2}", attack.TargetEntityId);
+        Assert.AreEqual(1, attack.X);
+        Assert.AreEqual(0, attack.Y);
+    }
+
+    [TestMethod]
+    public void Attack_RemovesAdjacentEnemyUnit()
+    {
+        var state = CreateStartedTwoPlayerMatch(out var p1, out var p2);
+
+        var result = _engine.ApplyAction(state, p1, new AttackEntityActionDto
+        {
+            ActionId = "atk1",
+            ClientSequence = 1,
+            EntityId = $"unit-{p1}",
+            TargetEntityId = $"unit-{p2}"
+        });
+
+        state = ExpectOk(result);
+        Assert.IsFalse(state.Entities.ContainsKey($"unit-{p2}"));
+    }
+
+    [TestMethod]
+    public void Attack_FriendlyTarget_IsRejected()
+    {
+        var state = CreateStartedTwoPlayerMatch(out var p1, out _);
+
+        var result = _engine.ApplyAction(state, p1, new AttackEntityActionDto
+        {
+            ActionId = "atk1",
+            ClientSequence = 1,
+            EntityId = $"unit-{p1}",
+            TargetEntityId = $"unit-{p1}"
+        });
+
+        Assert.IsFalse(result.Success);
+        Assert.AreEqual("FriendlyTarget", result.Error);
+    }
+
     private MatchState CreateStartedTwoPlayerMatch(out string player1Id, out string player2Id)
     {
         player1Id = "p1";
@@ -158,8 +212,8 @@ public sealed class GameEngineRulesTests
             DisconnectGraceSeconds: 120);
         var state = MatchState.CreateNew("game-1", settings, hostPlayerId: player1Id);
 
-        state = ExpectOk(_engine.AddOrReconnectPlayer(state, player1Id));
-        state = ExpectOk(_engine.AddOrReconnectPlayer(state, player2Id));
+        state = ExpectOk(_engine.AddOrReconnectPlayer(state, player1Id, "Player 1"));
+        state = ExpectOk(_engine.AddOrReconnectPlayer(state, player2Id, "Player 2"));
 
         state = ExpectOk(_engine.SetReady(state, player1Id, true));
         state = ExpectOk(_engine.SetReady(state, player2Id, true));

@@ -5,105 +5,88 @@ namespace GameServer.Game.Engine;
 
 public sealed class GameEngine(IMapProvider maps) : IGameEngine
 {
-    private static readonly string[] SlotOrder =
+    public EngineResult<MatchState> AddOrReconnectPlayer(MatchState state, string playerId, string? displayName)
     {
-        "white", "red", "green", "black", "orange", "lightblue", "darkblue", "yellow"
-    };
-
-    public EngineResult<MatchState> AddOrReconnectPlayer(MatchState state, string playerId)
-    {
-        if (!string.Equals(state.Phase, MatchPhases.Lobby, StringComparison.Ordinal) &&
-            !state.Players.ContainsKey(playerId))
+        var seatId = state.FindSeatIdByPlayerId(playerId);
+        if (seatId is null)
         {
-            return EngineResult<MatchState>.Fail(state, "MatchAlreadyStarted");
+            if (!string.Equals(state.Phase, MatchPhases.Lobby, StringComparison.Ordinal))
+            {
+                return state.FindClaimableSeat() is not null
+                    ? EngineResult<MatchState>.Fail(state, "SeatClaimRequired")
+                    : EngineResult<MatchState>.Fail(state, "MatchAlreadyStarted");
+            }
+
+            seatId = state.FindFirstOpenLobbySeatId();
         }
 
-        if (!state.Players.ContainsKey(playerId) && state.Players.Count >= state.Settings.MaxPlayers)
+        if (seatId is null)
         {
             return EngineResult<MatchState>.Fail(state, "GameFull");
         }
 
-        var players = state.Players.SetItem(playerId, new PlayerPresenceDto(playerId, true));
-        var ready = state.Ready;
-        if (string.Equals(state.Phase, MatchPhases.Lobby, StringComparison.Ordinal))
+        return ApplySeatClaim(state, playerId, displayName, seatId);
+    }
+
+    public EngineResult<MatchState> ClaimSeat(MatchState state, string playerId, string? displayName, string seatId)
+    {
+        if (!state.Seats.TryGetValue(seatId, out var seat))
         {
-            ready = ready.SetItem(playerId, new PlayerReadyDto(playerId, false));
+            return EngineResult<MatchState>.Fail(state, "UnknownSeat");
         }
 
-        var turns = state.Turns.EnsurePlayerInOrder(playerId);
-        var slots = state.SlotsByPlayerId;
-        if (!slots.ContainsKey(playerId))
+        if (state.FindSeatIdByPlayerId(playerId) is not null)
         {
-            var next = SlotOrder.FirstOrDefault(s => !slots.Values.Contains(s, StringComparer.Ordinal));
-            if (next is null)
-            {
-                return EngineResult<MatchState>.Fail(state, "NoAvailableSlots");
-            }
-            slots = slots.SetItem(playerId, next);
+            return EngineResult<MatchState>.Fail(state, "SeatAlreadyClaimed");
         }
 
-        var updated = state with { Players = players, Ready = ready, Turns = turns, SlotsByPlayerId = slots };
-        updated = EnsureCurrentTurnIsEligible(updated);
+        if (seat.IsClaimed)
+        {
+            return EngineResult<MatchState>.Fail(state, "SeatAlreadyClaimed");
+        }
 
-        return MaybeAutoStart(updated);
+        if (string.Equals(state.Phase, MatchPhases.InProgress, StringComparison.Ordinal) && !seat.IsActive)
+        {
+            return EngineResult<MatchState>.Fail(state, "SeatNotClaimable");
+        }
+
+        return ApplySeatClaim(state, playerId, displayName, seatId);
     }
 
     public EngineResult<MatchState> SetConnected(MatchState state, string playerId, bool isConnected)
     {
-        if (!state.Players.TryGetValue(playerId, out var existing))
+        var seatId = state.FindSeatIdByPlayerId(playerId);
+        if (seatId is null || !state.Seats.TryGetValue(seatId, out var existing))
         {
             return EngineResult<MatchState>.Ok(state);
         }
 
-        var players = state.Players.SetItem(playerId, existing with { IsConnected = isConnected });
-        var ready = state.Ready;
-        if (!isConnected && ready.ContainsKey(playerId))
+        var updatedSeat = existing with
         {
-            ready = ready.SetItem(playerId, new PlayerReadyDto(playerId, false));
+            IsConnected = isConnected,
+            IsReady = isConnected ? existing.IsReady : false,
+            DisconnectedSinceUnixSeconds = isConnected ? null : existing.DisconnectedSinceUnixSeconds ?? 0
+        };
+
+        var updated = state with { Seats = state.Seats.SetItem(seatId, updatedSeat) };
+        if (!isConnected && string.Equals(state.Turns.CurrentPlayerId, seatId, StringComparison.Ordinal))
+        {
+            updated = updated with { TurnEndsAtUnixSeconds = null };
         }
 
-        var disconnectedSince = state.DisconnectedSinceUnixSeconds;
-        if (isConnected)
-        {
-            disconnectedSince = disconnectedSince.Remove(playerId);
-        }
-        else if (!disconnectedSince.ContainsKey(playerId))
-        {
-            disconnectedSince = disconnectedSince.SetItem(playerId, 0);
-        }
-
-        var updated = state with { Players = players, Ready = ready, DisconnectedSinceUnixSeconds = disconnectedSince };
-        updated = EnsureCurrentTurnIsEligible(updated);
         return EngineResult<MatchState>.Ok(updated);
     }
 
     public EngineResult<MatchState> RemovePlayer(MatchState state, string playerId)
     {
-        if (!state.Players.ContainsKey(playerId))
-        {
-            return EngineResult<MatchState>.Ok(state);
-        }
-
-        var players = state.Players.Remove(playerId);
-        var ready = state.Ready.Remove(playerId);
-        var turns = state.Turns.RemovePlayer(playerId);
-
-        var entities = state.Entities;
-        foreach (var entity in entities.Values.Where(e => string.Equals(e.OwnerPlayerId, playerId, StringComparison.Ordinal)).ToArray())
-        {
-            entities = entities.Remove(entity.EntityId);
-        }
-
-        var updated = state with
-        {
-            Players = players,
-            Ready = ready,
-            Entities = entities,
-            Turns = turns,
-            DisconnectedSinceUnixSeconds = state.DisconnectedSinceUnixSeconds.Remove(playerId)
-        };
-        updated = EnsureCurrentTurnIsEligible(updated);
-        return EngineResult<MatchState>.Ok(updated);
+        var seatId = state.FindSeatIdByPlayerId(playerId);
+        return seatId is null
+            ? EngineResult<MatchState>.Ok(state)
+            : EngineResult<MatchState>.Ok(UnclaimSeatCore(
+                state,
+                seatId,
+                keepEntities: false,
+                keepSeatActive: !string.Equals(state.Phase, MatchPhases.Lobby, StringComparison.Ordinal)));
     }
 
     public EngineResult<MatchState> SetReady(MatchState state, string playerId, bool isReady)
@@ -113,18 +96,18 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
             return EngineResult<MatchState>.Fail(state, "MatchAlreadyStarted");
         }
 
-        if (!state.Players.TryGetValue(playerId, out var presence))
+        var seatId = state.FindSeatIdByPlayerId(playerId);
+        if (seatId is null || !state.Seats.TryGetValue(seatId, out var seat) || !seat.IsClaimed)
         {
             return EngineResult<MatchState>.Fail(state, "UnknownPlayer");
         }
 
-        if (!presence.IsConnected)
+        if (!seat.IsConnected)
         {
             return EngineResult<MatchState>.Fail(state, "PlayerDisconnected");
         }
 
-        var ready = state.Ready.SetItem(playerId, new PlayerReadyDto(playerId, isReady));
-        var updated = state with { Ready = ready };
+        var updated = state with { Seats = state.Seats.SetItem(seatId, seat with { IsReady = isReady }) };
         return MaybeAutoStart(updated);
     }
 
@@ -135,7 +118,8 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
             return EngineResult<MatchState>.Fail(state, "MatchAlreadyStarted");
         }
 
-        if (!string.Equals(requestingPlayerId, state.HostPlayerId, StringComparison.Ordinal))
+        var requestingSeatId = state.FindSeatIdByPlayerId(requestingPlayerId);
+        if (!string.Equals(requestingSeatId, state.HostSeatId, StringComparison.Ordinal))
         {
             return EngineResult<MatchState>.Fail(state, "HostOnly");
         }
@@ -155,22 +139,28 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
             return EngineResult<MatchState>.Fail(state, "MatchNotStarted");
         }
 
-        if (!state.Players.TryGetValue(playerId, out var presence))
+        if (state.HasUnclaimedRequiredSeats)
+        {
+            return EngineResult<MatchState>.Fail(state, "SeatUnclaimed");
+        }
+
+        var seatId = state.FindSeatIdByPlayerId(playerId);
+        if (seatId is null || !state.Seats.TryGetValue(seatId, out var seat) || !seat.IsClaimed)
         {
             return EngineResult<MatchState>.Fail(state, "UnknownPlayer");
         }
 
-        if (!presence.IsConnected)
+        if (!seat.IsConnected)
         {
             return EngineResult<MatchState>.Fail(state, "PlayerDisconnected");
         }
 
-        if (state.Turns.CurrentPlayerId is not null && !state.Turns.IsPlayersTurn(playerId))
+        if (state.Turns.CurrentPlayerId is not null && !state.Turns.IsPlayersTurn(seatId))
         {
             return EngineResult<MatchState>.Fail(state, "NotYourTurn");
         }
 
-        var validationResult = ValidateAndApply(state, playerId, action);
+        var validationResult = ValidateAndApply(state, seatId, action);
         if (!validationResult.Success)
         {
             return validationResult;
@@ -187,7 +177,6 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
         }
 
         var updated = state;
-
         updated = UpdateDisconnectGrace(updated, nowUnixSeconds);
         updated = EnsureCurrentTurnIsEligible(updated);
         updated = UpdateTurnTimeout(updated, nowUnixSeconds);
@@ -195,21 +184,76 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
         return EngineResult<MatchState>.Ok(updated);
     }
 
-    private EngineResult<MatchState> ValidateAndApply(MatchState state, string playerId, PlayerActionDto action) =>
+    public IReadOnlyList<AvailableActionDto> GetAvailableActions(MatchState state)
+    {
+        if (!string.Equals(state.Phase, MatchPhases.InProgress, StringComparison.Ordinal) || state.HasUnclaimedRequiredSeats)
+        {
+            return [];
+        }
+
+        var currentSeatId = state.Turns.CurrentPlayerId;
+        if (currentSeatId is null)
+        {
+            return [];
+        }
+
+        if (!state.Seats.TryGetValue(currentSeatId, out var seat) || !seat.IsClaimed || !seat.IsConnected)
+        {
+            return [];
+        }
+
+        var actions = new List<AvailableActionDto>
+        {
+            new AvailableEndTurnActionDto()
+        };
+
+        foreach (var entity in state.Entities.Values.Where(e => string.Equals(e.OwnerPlayerId, currentSeatId, StringComparison.Ordinal)))
+        {
+            foreach (var candidate in EnumerateOrthogonalNeighbors(entity))
+            {
+                if (!IsInBounds(state, candidate.X, candidate.Y))
+                {
+                    continue;
+                }
+
+                if (TryGetEntityAt(state, candidate.X, candidate.Y, out var target))
+                {
+                    if (!string.Equals(target.OwnerPlayerId, currentSeatId, StringComparison.Ordinal))
+                    {
+                        actions.Add(new AvailableAttackActionDto(entity.EntityId, target.EntityId, candidate.X, candidate.Y));
+                    }
+
+                    continue;
+                }
+
+                if (IsBlocked(state, candidate.X, candidate.Y))
+                {
+                    continue;
+                }
+
+                actions.Add(new AvailableMoveActionDto(entity.EntityId, candidate.X, candidate.Y));
+            }
+        }
+
+        return actions;
+    }
+
+    private EngineResult<MatchState> ValidateAndApply(MatchState state, string actingSeatId, PlayerActionDto action) =>
         action switch
         {
             EndTurnActionDto => EngineResult<MatchState>.Ok(AdvanceTurnForEndTurn(state)),
-            MoveEntityActionDto move => ApplyMove(state, playerId, move),
+            MoveEntityActionDto move => ApplyMove(state, actingSeatId, move),
+            AttackEntityActionDto attack => ApplyAttack(state, actingSeatId, attack),
             _ => EngineResult<MatchState>.Fail(state, "UnknownAction")
         };
 
     private static MatchState AdvanceTurnForEndTurn(MatchState state)
     {
-        var turns = state.Turns.AdvanceTurn(id => state.Players.TryGetValue(id, out var p) && p.IsConnected);
+        var turns = state.Turns.AdvanceTurn(id => IsSeatEligibleForTurn(state, id));
         return state with { Turns = turns, TurnEndsAtUnixSeconds = null };
     }
 
-    private EngineResult<MatchState> ApplyMove(MatchState state, string playerId, MoveEntityActionDto move)
+    private EngineResult<MatchState> ApplyMove(MatchState state, string actingSeatId, MoveEntityActionDto move)
     {
         if (string.IsNullOrWhiteSpace(move.EntityId))
         {
@@ -221,16 +265,11 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
             return EngineResult<MatchState>.Fail(state, "UnknownEntity");
         }
 
-        if (!string.Equals(entity.OwnerPlayerId, playerId, StringComparison.Ordinal))
+        if (!string.Equals(entity.OwnerPlayerId, actingSeatId, StringComparison.Ordinal))
         {
             return EngineResult<MatchState>.Fail(state, "NotEntityOwner");
         }
 
-        // Bounds and blocked tiles are map-driven.
-        // Map tiles are deterministic by Settings.MapId, which is persisted in state/settings.
-        // Engine stays testable by swapping IMapProvider.
-        // Note: this throws if map is missing; callers should ensure map exists when creating a match.
-        // We treat missing maps as invalid configuration rather than a gameplay rejection.
         if (!IsInBounds(state, move.X, move.Y))
         {
             return EngineResult<MatchState>.Fail(state, "OutOfBounds");
@@ -257,6 +296,49 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
         return EngineResult<MatchState>.Ok(state with { Entities = entities });
     }
 
+    private EngineResult<MatchState> ApplyAttack(MatchState state, string actingSeatId, AttackEntityActionDto attack)
+    {
+        if (string.IsNullOrWhiteSpace(attack.EntityId))
+        {
+            return EngineResult<MatchState>.Fail(state, "EntityIdRequired");
+        }
+
+        if (string.IsNullOrWhiteSpace(attack.TargetEntityId))
+        {
+            return EngineResult<MatchState>.Fail(state, "TargetEntityIdRequired");
+        }
+
+        if (!state.Entities.TryGetValue(attack.EntityId, out var attacker))
+        {
+            return EngineResult<MatchState>.Fail(state, "UnknownEntity");
+        }
+
+        if (!string.Equals(attacker.OwnerPlayerId, actingSeatId, StringComparison.Ordinal))
+        {
+            return EngineResult<MatchState>.Fail(state, "NotEntityOwner");
+        }
+
+        if (!state.Entities.TryGetValue(attack.TargetEntityId, out var target))
+        {
+            return EngineResult<MatchState>.Fail(state, "UnknownTargetEntity");
+        }
+
+        if (string.Equals(target.OwnerPlayerId, actingSeatId, StringComparison.Ordinal))
+        {
+            return EngineResult<MatchState>.Fail(state, "FriendlyTarget");
+        }
+
+        var dx = Math.Abs(target.X - attacker.X);
+        var dy = Math.Abs(target.Y - attacker.Y);
+        if (dx + dy != 1)
+        {
+            return EngineResult<MatchState>.Fail(state, "TargetOutOfRange");
+        }
+
+        var entities = state.Entities.Remove(target.EntityId);
+        return EngineResult<MatchState>.Ok(state with { Entities = entities });
+    }
+
     private bool IsInBounds(MatchState state, int x, int y)
     {
         var map = maps.Get(state.Settings.MapId);
@@ -268,6 +350,20 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
         var map = maps.Get(state.Settings.MapId);
         var i = y * map.Width + x;
         return map.Blocked[i];
+    }
+
+    private static IEnumerable<GridPoint> EnumerateOrthogonalNeighbors(EntityStateDto entity)
+    {
+        yield return new GridPoint(entity.X, entity.Y - 1);
+        yield return new GridPoint(entity.X - 1, entity.Y);
+        yield return new GridPoint(entity.X + 1, entity.Y);
+        yield return new GridPoint(entity.X, entity.Y + 1);
+    }
+
+    private static bool TryGetEntityAt(MatchState state, int x, int y, out EntityStateDto entity)
+    {
+        entity = state.Entities.Values.FirstOrDefault(candidate => candidate.X == x && candidate.Y == y)!;
+        return entity is not null;
     }
 
     private EngineResult<MatchState> MaybeAutoStart(MatchState state)
@@ -282,58 +378,80 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
 
     private static bool CanStart(MatchState state)
     {
-        var connectedPlayers = state.Players.Values.Where(p => p.IsConnected).Select(p => p.PlayerId).ToArray();
-        if (connectedPlayers.Length < state.Settings.MinPlayers)
+        var connectedClaimedSeats = state.Seats.Values.Where(seat => seat.IsActive && seat.IsClaimed && seat.IsConnected).ToArray();
+        if (connectedClaimedSeats.Length < state.Settings.MinPlayers)
         {
             return false;
         }
 
-        return connectedPlayers.All(playerId => state.Ready.TryGetValue(playerId, out var r) && r.IsReady);
+        return connectedClaimedSeats.All(seat => seat.IsReady);
     }
 
     private MatchState StartMatchInternal(MatchState state)
     {
-        var updated = state with { Phase = MatchPhases.InProgress };
+        var activeSeatIds = MatchState.SeatOrder
+            .Where(seatId => state.Seats.TryGetValue(seatId, out var seat) && seat.IsActive && seat.IsClaimed && seat.IsConnected)
+            .ToImmutableArray();
+        var updated = state with
+        {
+            Phase = MatchPhases.InProgress,
+            Turns = new TurnState(activeSeatIds, 0, false, 0)
+        };
+        var turns = updated.Turns.Start(id => IsSeatEligibleForTurn(updated, id));
 
-        var connected = updated.Players.Values.Where(p => p.IsConnected).Select(p => p.PlayerId).OrderBy(p => p, StringComparer.Ordinal).ToArray();
-        var turns = updated.Turns.Start(id => updated.Players.TryGetValue(id, out var p) && p.IsConnected);
-
-        // Map-driven spawn: each player spawns at the top-left tile of their faction's castle.
         var entities = updated.Entities;
         var map = maps.Get(updated.Settings.MapId);
-        foreach (var playerId in connected)
+        foreach (var seatId in activeSeatIds)
         {
-            if (!updated.SlotsByPlayerId.TryGetValue(playerId, out var slot))
+            if (!updated.Seats.TryGetValue(seatId, out var seat) || !seat.IsClaimed || !seat.IsConnected)
             {
                 continue;
             }
 
-            if (!map.SpawnTopLeftByOwner.TryGetValue(slot, out var spawn))
+            if (!map.SpawnTopLeftByOwner.TryGetValue(seatId, out var spawn))
             {
                 continue;
             }
 
-            var entityId = $"unit-{playerId}";
+            var entityId = $"unit-{seat.ClaimedByPlayerId}";
             if (!entities.ContainsKey(entityId))
             {
-                entities = entities.SetItem(entityId, new EntityStateDto(entityId, playerId, spawn.X, spawn.Y));
+                entities = entities.SetItem(entityId, new EntityStateDto(entityId, seatId, spawn.X, spawn.Y));
             }
         }
 
-        updated = updated with { Turns = turns, Entities = entities, TurnEndsAtUnixSeconds = null };
-        return updated;
+        return updated with { Turns = turns, Entities = entities, TurnEndsAtUnixSeconds = null };
     }
 
     private static MatchState UpdateTurnTimeout(MatchState state, long nowUnixSeconds)
     {
-        if (!state.Turns.Started || state.Turns.CurrentPlayerId is null)
+        if (state.HasUnclaimedRequiredSeats)
+        {
+            return state.TurnEndsAtUnixSeconds is null ? state : state with { TurnEndsAtUnixSeconds = null };
+        }
+
+        var currentSeatId = state.Turns.CurrentPlayerId;
+        if (!state.Turns.Started || currentSeatId is null)
         {
             return state;
         }
 
-        var limit = Math.Max(1, state.Settings.TurnTimeLimitSeconds);
+        if (!state.Seats.TryGetValue(currentSeatId, out var currentSeat) || !currentSeat.IsClaimed || !currentSeat.IsConnected)
+        {
+            return state.TurnEndsAtUnixSeconds is null ? state : state with { TurnEndsAtUnixSeconds = null };
+        }
+
+        var limit = state.Settings.TurnTimeLimitSeconds;
+        if (limit <= 0)
+        {
+            return state.TurnEndsAtUnixSeconds is null ? state : state with { TurnEndsAtUnixSeconds = null };
+        }
+
         var endsAt = state.TurnEndsAtUnixSeconds;
-        if (endsAt is null || endsAt <= 0) return state;
+        if (endsAt is null || endsAt <= 0)
+        {
+            return state;
+        }
 
         if (nowUnixSeconds < endsAt.Value)
         {
@@ -342,98 +460,178 @@ public sealed class GameEngine(IMapProvider maps) : IGameEngine
 
         var advanced = AdvanceTurnForEndTurn(state);
         var sysActionId = $"sys:endTurn:{state.GameId}:{nowUnixSeconds}:{advanced.Turns.TurnNumber}";
-        advanced = advanced with
+        return advanced with
         {
             LastAction = new EndTurnActionDto { ActionId = sysActionId, ClientSequence = 0 },
             TurnEndsAtUnixSeconds = nowUnixSeconds + limit
         };
-
-        return advanced;
     }
 
     private static MatchState EnsureCurrentTurnIsEligible(MatchState state)
     {
-        if (!string.Equals(state.Phase, MatchPhases.InProgress, StringComparison.Ordinal))
+        if (!string.Equals(state.Phase, MatchPhases.InProgress, StringComparison.Ordinal) || state.HasUnclaimedRequiredSeats)
         {
             return state;
         }
 
-        var current = state.Turns.CurrentPlayerId;
-        if (current is null)
+        var currentSeatId = state.Turns.CurrentPlayerId;
+        if (currentSeatId is null)
         {
             return state;
         }
 
-        if (state.Players.TryGetValue(current, out var presence) && presence.IsConnected)
+        if (state.Seats.TryGetValue(currentSeatId, out var seat) && seat.IsClaimed)
         {
             return state;
         }
 
-        var turns = state.Turns.AdvanceTurn(id => state.Players.TryGetValue(id, out var p) && p.IsConnected);
+        var turns = state.Turns.AdvanceTurn(id => IsSeatEligibleForTurn(state, id));
         return state with { Turns = turns, TurnEndsAtUnixSeconds = null };
     }
 
     private static MatchState UpdateDisconnectGrace(MatchState state, long nowUnixSeconds)
     {
-        var grace = Math.Max(0, state.Settings.DisconnectGraceSeconds);
-        var disconnectedSince = state.DisconnectedSinceUnixSeconds;
-
-        foreach (var (playerId, presence) in state.Players)
+        foreach (var seat in state.Seats.Values.Where(seat => seat.IsActive && seat.IsClaimed))
         {
-            if (presence.IsConnected)
+            if (seat.IsConnected)
             {
-                if (disconnectedSince.ContainsKey(playerId))
+                if (seat.DisconnectedSinceUnixSeconds is null)
                 {
-                    disconnectedSince = disconnectedSince.Remove(playerId);
+                    continue;
                 }
 
+                state = state with
+                {
+                    Seats = state.Seats.SetItem(seat.SeatId, seat with { DisconnectedSinceUnixSeconds = null })
+                };
                 continue;
             }
 
-            if (!disconnectedSince.TryGetValue(playerId, out var since) || since <= 0)
+            if (seat.DisconnectedSinceUnixSeconds is null or <= 0)
             {
-                disconnectedSince = disconnectedSince.SetItem(playerId, nowUnixSeconds);
+                state = state with
+                {
+                    Seats = state.Seats.SetItem(seat.SeatId, seat with { DisconnectedSinceUnixSeconds = nowUnixSeconds })
+                };
                 continue;
             }
 
-            if (grace > 0 && nowUnixSeconds - since < grace)
+            var grace = Math.Max(0, state.Settings.DisconnectGraceSeconds);
+            if (grace > 0 && nowUnixSeconds - seat.DisconnectedSinceUnixSeconds.Value < grace)
             {
                 continue;
             }
 
-            var removed = RemovePlayerCore(state with { DisconnectedSinceUnixSeconds = disconnectedSince }, playerId);
-            return removed;
+            return UnclaimSeatCore(state, seat.SeatId, keepEntities: true, keepSeatActive: true);
         }
 
-        return state with { DisconnectedSinceUnixSeconds = disconnectedSince };
+        return state;
     }
 
-    private static MatchState RemovePlayerCore(MatchState state, string playerId)
+    private static MatchState UnclaimSeatCore(MatchState state, string seatId, bool keepEntities, bool keepSeatActive)
     {
-        if (!state.Players.ContainsKey(playerId))
+        if (!state.Seats.TryGetValue(seatId, out var seat))
         {
             return state;
         }
 
-        var players = state.Players.Remove(playerId);
-        var ready = state.Ready.Remove(playerId);
-        var turns = state.Turns.RemovePlayer(playerId);
-
-        var entities = state.Entities;
-        foreach (var entity in entities.Values.Where(e => string.Equals(e.OwnerPlayerId, playerId, StringComparison.Ordinal)).ToArray())
+        var updatedEntities = state.Entities;
+        if (!keepEntities)
         {
-            entities = entities.Remove(entity.EntityId);
+            foreach (var entity in updatedEntities.Values.Where(entity => string.Equals(entity.OwnerPlayerId, seatId, StringComparison.Ordinal)).ToArray())
+            {
+                updatedEntities = updatedEntities.Remove(entity.EntityId);
+            }
         }
+
+        var updatedSeat = seat with
+        {
+            ClaimedByPlayerId = null,
+            DisplayName = null,
+            IsConnected = false,
+            IsReady = false,
+            DisconnectedSinceUnixSeconds = null,
+            IsActive = keepSeatActive
+        };
 
         var updated = state with
         {
-            Players = players,
-            Ready = ready,
-            Entities = entities,
-            Turns = turns,
-            DisconnectedSinceUnixSeconds = state.DisconnectedSinceUnixSeconds.Remove(playerId)
+            Seats = state.Seats.SetItem(seatId, updatedSeat),
+            Entities = updatedEntities
         };
+
+        if (string.Equals(updated.HostSeatId, seatId, StringComparison.Ordinal))
+        {
+            updated = updated with { HostSeatId = ResolveReplacementHostSeatId(updated) };
+        }
+
+        if (!keepSeatActive)
+        {
+            var activeSeats = updated.ActiveSeatIds;
+            updated = updated with
+            {
+                Turns = new TurnState(activeSeats, activeSeats.Length > 0 ? Math.Min(updated.Turns.CurrentIndex, activeSeats.Length - 1) : 0, updated.Turns.Started, updated.Turns.TurnNumber),
+                TurnEndsAtUnixSeconds = null
+            };
+        }
 
         return EnsureCurrentTurnIsEligible(updated);
     }
+
+    private static string ResolveReplacementHostSeatId(MatchState state)
+    {
+        foreach (var seatId in MatchState.SeatOrder.Take(state.Settings.MaxPlayers))
+        {
+            if (state.Seats.TryGetValue(seatId, out var seat) && seat.IsActive && seat.IsClaimed && seat.IsConnected)
+            {
+                return seatId;
+            }
+        }
+
+        foreach (var seatId in MatchState.SeatOrder.Take(state.Settings.MaxPlayers))
+        {
+            if (state.Seats.TryGetValue(seatId, out var seat) && seat.IsActive && seat.IsClaimed)
+            {
+                return seatId;
+            }
+        }
+
+        return state.HostSeatId;
+    }
+
+    private static bool IsSeatEligibleForTurn(MatchState state, string seatId) =>
+        state.Seats.TryGetValue(seatId, out var seat) && seat.IsActive && seat.IsClaimed && seat.IsConnected;
+
+    private EngineResult<MatchState> ApplySeatClaim(MatchState state, string playerId, string? displayName, string seatId)
+    {
+        if (!state.Seats.TryGetValue(seatId, out var existingSeat))
+        {
+            return EngineResult<MatchState>.Fail(state, "UnknownSeat");
+        }
+
+        var resolvedDisplayName = string.IsNullOrWhiteSpace(displayName)
+            ? existingSeat.DisplayName
+            : displayName.Trim();
+        var updatedSeat = existingSeat with
+        {
+            ClaimedByPlayerId = playerId,
+            DisplayName = resolvedDisplayName,
+            IsConnected = true,
+            IsReady = string.Equals(state.Phase, MatchPhases.Lobby, StringComparison.Ordinal) ? false : existingSeat.IsReady,
+            DisconnectedSinceUnixSeconds = null,
+            IsActive = true
+        };
+
+        var updated = state with { Seats = state.Seats.SetItem(seatId, updatedSeat) };
+
+        if (string.Equals(state.Phase, MatchPhases.Lobby, StringComparison.Ordinal))
+        {
+            updated = updated.Turns.Order.IsDefaultOrEmpty
+                ? updated with { Turns = new TurnState(updated.ActiveSeatIds, 0, false, 0) }
+                : updated with { Turns = updated.Turns.EnsurePlayerInOrder(seatId) };
+        }
+
+        return MaybeAutoStart(EnsureCurrentTurnIsEligible(updated));
+    }
 }
+

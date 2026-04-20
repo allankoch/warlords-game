@@ -23,9 +23,13 @@ public sealed class TestMapProvider : IMapProvider
             ["yellow"] = new GridPoint(7, 0)
         };
 
-        _map = new LoadedMap("test-map", width, height, tiles, blocked, spawns);
+        var definitions = new Dictionary<int, TileDefinition>
+        {
+            [0] = new(0, "grassland", null, false)
+        };
+
+        _map = new LoadedMap("test-map", width, height, tiles, blocked, spawns, definitions);
     }
 
     public LoadedMap Get(string mapId) => _map;
 }
-

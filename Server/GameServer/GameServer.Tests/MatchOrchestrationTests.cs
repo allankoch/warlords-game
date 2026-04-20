@@ -2,7 +2,6 @@ using GameServer.Game;
 using GameServer.Game.Engine;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
-using GameServer.Protocol;
 
 namespace GameServer.Tests;
 
@@ -22,14 +21,13 @@ public sealed class MatchOrchestrationTests
             DisconnectGraceSeconds: 120);
 
         engine
-            .AddOrReconnectPlayer(Arg.Any<MatchState>(), "p1")
+            .AddOrReconnectPlayer(Arg.Any<MatchState>(), "p1", "Alice")
             .Returns(callInfo =>
             {
                 var input = callInfo.Arg<MatchState>();
                 var updated = input with
                 {
-                    Players = input.Players.SetItem("p1", new PlayerPresenceDto("p1", true)),
-                    Turns = input.Turns.EnsurePlayerInOrder("p1")
+                    Seats = input.Seats.SetItem("white", new SeatState("white", "p1", "Alice", true, false, null))
                 };
                 return EngineResult<MatchState>.Ok(updated);
             });
@@ -37,9 +35,9 @@ public sealed class MatchOrchestrationTests
         var match = new Match("game-1", settings, "host", engine);
         Assert.AreEqual(0, match.Version);
 
-        match.AddOrReconnectPlayer("p1");
+        match.AddOrReconnectPlayer("p1", "Alice");
 
-        engine.Received(1).AddOrReconnectPlayer(Arg.Is<MatchState>(s => s.GameId == "game-1"), "p1");
+        engine.Received(1).AddOrReconnectPlayer(Arg.Is<MatchState>(s => s.GameId == "game-1"), "p1", "Alice");
         Assert.AreEqual(1, match.Version);
     }
 }

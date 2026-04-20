@@ -56,8 +56,51 @@ public sealed class SqliteDatabaseInitializer(SqliteStorageOptions options) : IH
             cmd.CommandText = sql;
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
+
+        await EnsureIdentityDisplayNameColumnAsync(connection, cancellationToken);
+        await EnsureIdentityActiveGameIdColumnAsync(connection, cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-}
 
+    private static async Task EnsureIdentityDisplayNameColumnAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        if (await IdentityColumnExistsAsync(connection, "displayName", cancellationToken))
+        {
+            return;
+        }
+
+        await using var alter = connection.CreateCommand();
+        alter.CommandText = "ALTER TABLE identity ADD COLUMN displayName TEXT NULL;";
+        await alter.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task EnsureIdentityActiveGameIdColumnAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        if (await IdentityColumnExistsAsync(connection, "activeGameId", cancellationToken))
+        {
+            return;
+        }
+
+        await using var alter = connection.CreateCommand();
+        alter.CommandText = "ALTER TABLE identity ADD COLUMN activeGameId TEXT NULL;";
+        await alter.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<bool> IdentityColumnExistsAsync(SqliteConnection connection, string columnName, CancellationToken cancellationToken)
+    {
+        await using var pragma = connection.CreateCommand();
+        pragma.CommandText = "PRAGMA table_info(identity);";
+
+        await using var reader = await pragma.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}

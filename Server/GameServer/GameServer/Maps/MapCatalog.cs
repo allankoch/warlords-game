@@ -45,7 +45,12 @@ public sealed class MapCatalog(IHostEnvironment environment) : IMapProvider
         var blocked = BuildBlocked(map, tileInfo);
         var spawnsByOwner = FindCastleSpawns(map, tileInfo);
 
-        return new LoadedMap(mapId, map.Width, map.Height, map.Data, blocked, spawnsByOwner);
+        var definitions = tileInfo
+            .ToDictionary(
+                kvp => kvp.Key,
+                kvp => new TileDefinition(kvp.Key, kvp.Value.Type, kvp.Value.Owner, IsBlockedType(kvp.Value.Type)));
+
+        return new LoadedMap(mapId, map.Width, map.Height, map.Data, blocked, spawnsByOwner, definitions);
     }
 
     private static void ValidateMap(MapJson map)
@@ -251,4 +256,11 @@ public sealed record LoadedMap(
     int Height,
     int[] Tiles,
     bool[] Blocked,
-    IReadOnlyDictionary<string, GridPoint> SpawnTopLeftByOwner);
+    IReadOnlyDictionary<string, GridPoint> SpawnTopLeftByOwner,
+    IReadOnlyDictionary<int, TileDefinition> TileDefinitions);
+
+public sealed record TileDefinition(
+    int TileId,
+    string Type,
+    string? Owner,
+    bool IsBlocked);

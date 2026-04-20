@@ -90,7 +90,7 @@ public sealed record TurnState(
             }
         } while (index != startIndex);
 
-        return this with { TurnNumber = TurnNumber + 1 };
+        return this;
     }
 
     private int IndexOf(string playerId)

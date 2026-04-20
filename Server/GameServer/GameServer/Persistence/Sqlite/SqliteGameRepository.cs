@@ -5,16 +5,18 @@ namespace GameServer.Persistence.Sqlite;
 
 public sealed class SqliteGameRepository(SqliteStorageOptions options) : IIdentityStore, IMatchStore, IMatchActionLog, IGamePersistence
 {
-    public async Task<PlayerIdentity> ResolveAsync(string? reconnectToken, CancellationToken cancellationToken)
+    public async Task<PlayerIdentity> ResolveAsync(string? reconnectToken, string? displayName, CancellationToken cancellationToken)
     {
         await using var connection = await OpenAsync(cancellationToken);
+        var normalizedDisplayName = NormalizeDisplayName(displayName);
         if (!string.IsNullOrWhiteSpace(reconnectToken))
         {
             var existing = await TryGetByTokenAsync(connection, reconnectToken, cancellationToken);
             if (existing is not null)
             {
-                await TouchAsync(connection, existing.PlayerId, cancellationToken);
-                return existing;
+                var resolvedDisplayName = normalizedDisplayName ?? existing.DisplayName;
+                await TouchAsync(connection, existing.PlayerId, resolvedDisplayName, cancellationToken);
+                return existing with { DisplayName = resolvedDisplayName };
             }
         }
 
@@ -25,22 +27,23 @@ public sealed class SqliteGameRepository(SqliteStorageOptions options) : IIdenti
         await using var cmd = connection.CreateCommand();
         cmd.CommandText =
             """
-            INSERT INTO identity (playerId, reconnectToken, createdAt, lastSeenAt)
-            VALUES ($playerId, $token, $now, $now);
+            INSERT INTO identity (playerId, reconnectToken, displayName, activeGameId, createdAt, lastSeenAt)
+            VALUES ($playerId, $token, $displayName, NULL, $now, $now);
             """;
         cmd.Parameters.AddWithValue("$playerId", playerId);
         cmd.Parameters.AddWithValue("$token", token);
+        cmd.Parameters.AddWithValue("$displayName", (object?)normalizedDisplayName ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$now", now);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
 
-        return new PlayerIdentity(playerId, token);
+        return new PlayerIdentity(playerId, token, normalizedDisplayName, null);
     }
 
     public async Task<PlayerIdentity?> TryGetByPlayerIdAsync(string playerId, CancellationToken cancellationToken)
     {
         await using var connection = await OpenAsync(cancellationToken);
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT playerId, reconnectToken FROM identity WHERE playerId = $playerId;";
+        cmd.CommandText = "SELECT playerId, reconnectToken, displayName, activeGameId FROM identity WHERE playerId = $playerId;";
         cmd.Parameters.AddWithValue("$playerId", playerId);
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -49,7 +52,21 @@ public sealed class SqliteGameRepository(SqliteStorageOptions options) : IIdenti
             return null;
         }
 
-        return new PlayerIdentity(reader.GetString(0), reader.GetString(1));
+        return new PlayerIdentity(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.IsDBNull(2) ? null : reader.GetString(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3));
+    }
+
+    public async Task SetActiveGameAsync(string playerId, string? activeGameId, CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "UPDATE identity SET activeGameId = $activeGameId WHERE playerId = $playerId;";
+        cmd.Parameters.AddWithValue("$playerId", playerId);
+        cmd.Parameters.AddWithValue("$activeGameId", (object?)activeGameId ?? DBNull.Value);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task SaveSnapshotAsync(PersistedMatchSnapshot snapshot, CancellationToken cancellationToken)
@@ -215,7 +232,7 @@ public sealed class SqliteGameRepository(SqliteStorageOptions options) : IIdenti
     private static async Task<PlayerIdentity?> TryGetByTokenAsync(SqliteConnection connection, string token, CancellationToken cancellationToken)
     {
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT playerId, reconnectToken FROM identity WHERE reconnectToken = $token;";
+        cmd.CommandText = "SELECT playerId, reconnectToken, displayName, activeGameId FROM identity WHERE reconnectToken = $token;";
         cmd.Parameters.AddWithValue("$token", token);
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -224,16 +241,32 @@ public sealed class SqliteGameRepository(SqliteStorageOptions options) : IIdenti
             return null;
         }
 
-        return new PlayerIdentity(reader.GetString(0), reader.GetString(1));
+        return new PlayerIdentity(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.IsDBNull(2) ? null : reader.GetString(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3));
     }
 
-    private static async Task TouchAsync(SqliteConnection connection, string playerId, CancellationToken cancellationToken)
+    private static async Task TouchAsync(SqliteConnection connection, string playerId, string? displayName, CancellationToken cancellationToken)
     {
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = "UPDATE identity SET lastSeenAt = $now WHERE playerId = $playerId;";
+        cmd.CommandText = "UPDATE identity SET lastSeenAt = $now, displayName = COALESCE($displayName, displayName) WHERE playerId = $playerId;";
         cmd.Parameters.AddWithValue("$playerId", playerId);
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        cmd.Parameters.AddWithValue("$displayName", (object?)displayName ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static string? NormalizeDisplayName(string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return null;
+        }
+
+        var trimmed = displayName.Trim();
+        return trimmed.Length <= 32 ? trimmed : trimmed[..32];
     }
 
     private static async Task UpsertMatchSnapshotAsync(
