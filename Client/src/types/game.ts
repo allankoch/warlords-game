@@ -19,6 +19,15 @@ export interface ReadyUpRequestDto {
   isReady: boolean
 }
 
+export interface SendLobbyChatRequestDto {
+  message: string
+}
+
+export interface ClaimSeatRequestDto {
+  gameId: string
+  seatId: string
+}
+
 export interface PlayerPresenceDto {
   playerId: string
   isConnected: boolean
@@ -33,6 +42,17 @@ export interface PlayerReadyDto {
 export interface PlayerSlotDto {
   playerId: string
   slot: string
+}
+
+export interface SeatStatusDto {
+  seatId: string
+  isActive: boolean
+  isClaimed: boolean
+  claimedByPlayerId: string | null
+  displayName: string | null
+  isConnected: boolean
+  isReady: boolean
+  hasUnits: boolean
 }
 
 export interface EntityStateDto {
@@ -110,6 +130,8 @@ export interface GameStateDto {
   serverActionSequence: number
   lastAction: PlayerActionDto | null
   serverTime: string
+  seats: SeatStatusDto[] | null
+  isPausedForSeatClaim: boolean
 }
 
 export interface ActionAcceptedDto {
@@ -137,14 +159,33 @@ export interface ResumeGameResultDto {
   gameState: GameStateDto | null
 }
 
+export interface ClaimSeatResultDto {
+  claimed: boolean
+  reason: string | null
+  gameState: GameStateDto | null
+}
+
 export interface MatchSummaryDto {
   gameId: string
   mapId: string
   phase: string
+  isPausedForSeatClaim: boolean
+  hostPlayerId: string
+  hostDisplayName: string | null
+  maxPlayers: number
   version: number
   serverActionSequence: number
   playerCount: number
+  openSeatCount: number
   savedAt: string
+}
+
+export interface LobbyChatMessageDto {
+  messageId: string
+  playerId: string
+  displayName: string | null
+  message: string
+  sentAt: string
 }
 
 export interface PlayerJoinedDto {

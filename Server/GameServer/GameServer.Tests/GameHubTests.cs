@@ -38,6 +38,37 @@ public sealed class GameHubTests
     }
 
     [TestMethod]
+    public async Task JoinGame_WhenSeatClaimIsRequired_ReturnsPausedState()
+    {
+        var pausedState = CreateState(
+            "game-1",
+            new PlayerPresenceDto("p2", true, "Bob"));
+        var gameSession = Substitute.For<IGameSessionService>();
+        gameSession
+            .JoinGameAsync("c1", "game-1", Arg.Any<CancellationToken>())
+            .Returns<Task<GameStateDto>>(_ => throw new InvalidOperationException("SeatClaimRequired"));
+        gameSession
+            .TryGetMatchStateAsync("game-1", Arg.Any<CancellationToken>())
+            .Returns(pausedState);
+
+        var caller = Substitute.For<IGameClient>();
+        var others = Substitute.For<IGameClient>();
+        var group = Substitute.For<IGameClient>();
+        var clients = CreateClients(caller, others, group);
+        var groups = Substitute.For<IGroupManager>();
+
+        var hub = CreateHub(gameSession, clients, groups, "c1", "p3", "Cara");
+
+        var result = await hub.JoinGame(new JoinGameRequestDto("game-1"));
+
+        Assert.IsFalse(result.Joined);
+        Assert.AreEqual("SeatClaimRequired", result.Reason);
+        Assert.AreEqual(pausedState, result.GameState);
+        await gameSession.Received(1).TryGetMatchStateAsync("game-1", Arg.Any<CancellationToken>());
+        await caller.DidNotReceive().GameState(Arg.Any<GameStateDto>());
+    }
+
+    [TestMethod]
     public async Task JoinGame_WhenSuccessful_BroadcastsStateAndJoinedEvent()
     {
         var state = CreateState("game-1",
@@ -136,6 +167,38 @@ public sealed class GameHubTests
         Assert.AreEqual(state, result.GameState);
         await caller.Received(1).GameState(state);
         await others.Received(1).GameState(state);
+        await others.DidNotReceive().PlayerJoined(Arg.Any<PlayerJoinedDto>());
+    }
+
+    [TestMethod]
+    public async Task ResumeGame_WhenSeatClaimIsRequired_ReturnsPausedState()
+    {
+        var pausedState = CreateState(
+            "game-1",
+            new PlayerPresenceDto("p2", true, "Bob"));
+        var gameSession = Substitute.For<IGameSessionService>();
+        gameSession
+            .JoinGameAsync("c1", "game-1", Arg.Any<CancellationToken>())
+            .Returns<Task<GameStateDto>>(_ => throw new InvalidOperationException("SeatClaimRequired"));
+        gameSession
+            .TryGetMatchStateAsync("game-1", Arg.Any<CancellationToken>())
+            .Returns(pausedState);
+
+        var caller = Substitute.For<IGameClient>();
+        var others = Substitute.For<IGameClient>();
+        var group = Substitute.For<IGameClient>();
+        var clients = CreateClients(caller, others, group);
+        var groups = Substitute.For<IGroupManager>();
+
+        var hub = CreateHub(gameSession, clients, groups, "c1", "p3", "Cara");
+
+        var result = await hub.ResumeGame(new JoinGameRequestDto("game-1"));
+
+        Assert.IsFalse(result.Resumed);
+        Assert.AreEqual("SeatClaimRequired", result.Reason);
+        Assert.AreEqual(pausedState, result.GameState);
+        await gameSession.Received(1).TryGetMatchStateAsync("game-1", Arg.Any<CancellationToken>());
+        await caller.DidNotReceive().GameState(Arg.Any<GameStateDto>());
         await others.DidNotReceive().PlayerJoined(Arg.Any<PlayerJoinedDto>());
     }
 
@@ -283,6 +346,50 @@ public sealed class GameHubTests
         Assert.AreEqual("UnknownPlayer", error.Message);
     }
 
+    [TestMethod]
+    public async Task ListLobbyMessages_ReturnsRecentMessages()
+    {
+        var gameSession = Substitute.For<IGameSessionService>();
+        var lobbyChat = new LobbyChatService();
+        lobbyChat.AddMessage("p1", "Allan", "Join iron-ford-101");
+
+        var caller = Substitute.For<IGameClient>();
+        var others = Substitute.For<IGameClient>();
+        var group = Substitute.For<IGameClient>();
+        var clients = CreateClients(caller, others, group);
+        var groups = Substitute.For<IGroupManager>();
+
+        var hub = CreateHub(gameSession, clients, groups, "c1", "p1", "Allan", lobbyChat: lobbyChat);
+
+        var result = hub.ListLobbyMessages();
+
+        Assert.AreEqual(1, result.Count);
+        Assert.AreEqual("Join iron-ford-101", result[0].Message);
+    }
+
+    [TestMethod]
+    public async Task SendLobbyChat_BroadcastsMessageToAllClients()
+    {
+        var gameSession = Substitute.For<IGameSessionService>();
+        var lobbyChat = new LobbyChatService();
+
+        var caller = Substitute.For<IGameClient>();
+        var others = Substitute.For<IGameClient>();
+        var group = Substitute.For<IGameClient>();
+        var clients = CreateClients(caller, others, group);
+        var groups = Substitute.For<IGroupManager>();
+
+        var hub = CreateHub(gameSession, clients, groups, "c1", "p1", "Allan", lobbyChat: lobbyChat);
+
+        var result = await hub.SendLobbyChat(new SendLobbyChatRequestDto("Anyone up for demo-10x10?"));
+
+        Assert.AreEqual("Anyone up for demo-10x10?", result.Message);
+        await group.Received(1).LobbyChatMessage(Arg.Is<LobbyChatMessageDto>(message =>
+            message.PlayerId == "p1" &&
+            message.DisplayName == "Allan" &&
+            message.Message == "Anyone up for demo-10x10?"));
+    }
+
     private static IHubCallerClients<IGameClient> CreateClients(
         IGameClient caller,
         IGameClient others,
@@ -290,6 +397,7 @@ public sealed class GameHubTests
     {
         var clients = Substitute.For<IHubCallerClients<IGameClient>>();
         clients.Caller.Returns(caller);
+        clients.All.Returns(group);
         clients.OthersInGroup("game:game-1").Returns(others);
         clients.Group("game:game-1").Returns(group);
         return clients;
@@ -302,7 +410,8 @@ public sealed class GameHubTests
         string connectionId,
         string playerId,
         string displayName,
-        string? gameId = null)
+        string? gameId = null,
+        ILobbyChatService? lobbyChat = null)
     {
         var context = new TestHubCallerContext(connectionId);
         context.Items["playerId"] = playerId;
@@ -312,7 +421,7 @@ public sealed class GameHubTests
             context.Items["gameId"] = gameId;
         }
 
-        return new GameHub(gameSession)
+        return new GameHub(gameSession, lobbyChat ?? new LobbyChatService())
         {
             Context = context,
             Clients = clients,

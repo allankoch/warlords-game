@@ -38,6 +38,15 @@ public sealed class GameService(
             connection.GameId ?? identity.ActiveGameId);
     }
 
+    public Task<IReadOnlyList<PlayerPresenceDto>> ListLobbyPlayersAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<PlayerPresenceDto> players = _connections.Values
+            .OrderBy(connection => connection.DisplayName ?? connection.PlayerId, StringComparer.OrdinalIgnoreCase)
+            .Select(connection => new PlayerPresenceDto(connection.PlayerId, true, connection.DisplayName))
+            .ToArray();
+        return Task.FromResult(players);
+    }
+
     public async Task<GameStateDto?> DisconnectAsync(string connectionId, CancellationToken cancellationToken)
     {
         if (!_connections.TryRemove(connectionId, out var connection))
@@ -218,16 +227,30 @@ public sealed class GameService(
 
         var snapshots = await matchStore.ListSnapshotsAsync(limit, cancellationToken);
         var list = new List<MatchSummaryDto>(snapshots.Count);
-        foreach (var snapshot in snapshots)
+        foreach (var snapshot in snapshots.OrderByDescending(item => item.SavedAt))
         {
             var dto = MatchSnapshotMapper.Deserialize(snapshot.SnapshotJson);
+            var openSeatCount = string.Equals(dto.Phase, MatchPhases.Lobby, StringComparison.Ordinal)
+                ? Math.Max(0, dto.Settings.MaxPlayers - (dto.Players?.Count ?? 0))
+                : dto.Seats?.Count(item => item.IsActive && string.IsNullOrWhiteSpace(item.ClaimedByPlayerId)) ?? 0;
+            var hostPlayerId = dto.HostPlayerId
+                ?? dto.Seats?.FirstOrDefault(seat => string.Equals(seat.SeatId, dto.HostSeatId, StringComparison.Ordinal))?.ClaimedByPlayerId
+                ?? dto.HostSeatId
+                ?? "unknown";
+            var hostDisplayName = dto.Players?.FirstOrDefault(player => string.Equals(player.PlayerId, hostPlayerId, StringComparison.Ordinal))?.DisplayName
+                ?? dto.Seats?.FirstOrDefault(seat => string.Equals(seat.ClaimedByPlayerId, hostPlayerId, StringComparison.Ordinal))?.DisplayName;
             list.Add(new MatchSummaryDto(
                 dto.GameId,
                 dto.Settings.MapId,
                 dto.Phase,
+                string.Equals(dto.Phase, MatchPhases.InProgress, StringComparison.Ordinal) && openSeatCount > 0,
+                hostPlayerId,
+                hostDisplayName,
+                dto.Settings.MaxPlayers,
                 snapshot.Version,
                 snapshot.ServerActionSequence,
                 dto.Players?.Count ?? dto.Seats?.Count(item => !string.IsNullOrWhiteSpace(item.ClaimedByPlayerId)) ?? 0,
+                openSeatCount,
                 snapshot.SavedAt));
         }
 
@@ -256,6 +279,20 @@ public sealed class GameService(
         await matchStore.SaveSnapshotAsync(persisted, cancellationToken);
         await identityStore.SetActiveGameAsync(connection.PlayerId, gameId, cancellationToken);
         return state;
+    }
+
+    public async Task<GameStateDto?> TryGetMatchStateAsync(string gameId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(gameId))
+        {
+            return null;
+        }
+
+        var session = await GetOrLoadSessionAsync(gameId, cancellationToken);
+        lock (session.Sync)
+        {
+            return session.Match.Snapshot();
+        }
     }
 
     public async Task<GameStateDto> ClaimSeatAsync(string connectionId, string gameId, string seatId, CancellationToken cancellationToken)

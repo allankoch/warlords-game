@@ -3,7 +3,7 @@ using GameServer.Protocol;
 
 namespace GameServer.Networking;
 
-public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
+public class GameHub(IGameSessionService gameSession, ILobbyChatService lobbyChat) : Hub<IGameClient>
 {
     private const string PlayerIdKey = "playerId";
     private const string DisplayNameKey = "displayName";
@@ -30,6 +30,7 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
         Context.Items[DisplayNameKey] = connected.DisplayName;
 
         await Clients.Caller.Connected(connected);
+        await Clients.All.LobbyPlayersUpdated(await gameSession.ListLobbyPlayersAsync(Context.ConnectionAborted));
         await base.OnConnectedAsync();
     }
 
@@ -42,6 +43,8 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
         {
             await Clients.Group(GameGroup(gameId)).GameState(state);
         }
+
+        await Clients.All.LobbyPlayersUpdated(await gameSession.ListLobbyPlayersAsync(CancellationToken.None));
 
         await base.OnDisconnectedAsync(exception);
     }
@@ -75,7 +78,10 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
         }
         catch (InvalidOperationException ex)
         {
-            return new JoinGameResultDto(false, ex.Message, null);
+            var failedState = ex.Message == "SeatClaimRequired"
+                ? await gameSession.TryGetMatchStateAsync(request.GameId, Context.ConnectionAborted)
+                : null;
+            return new JoinGameResultDto(false, ex.Message, failedState);
         }
 
         await Groups.AddToGroupAsync(connectionId, GameGroup(request.GameId), Context.ConnectionAborted);
@@ -115,7 +121,10 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
         }
         catch (InvalidOperationException ex)
         {
-            return new ResumeGameResultDto(false, ex.Message, null);
+            var failedState = ex.Message == "SeatClaimRequired"
+                ? await gameSession.TryGetMatchStateAsync(request.GameId, Context.ConnectionAborted)
+                : null;
+            return new ResumeGameResultDto(false, ex.Message, failedState);
         }
 
         await Groups.AddToGroupAsync(connectionId, GameGroup(request.GameId), Context.ConnectionAborted);
@@ -175,6 +184,36 @@ public class GameHub(IGameSessionService gameSession) : Hub<IGameClient>
     {
         var results = await gameSession.ListMatchesAsync(Context.ConnectionId, limit, Context.ConnectionAborted);
         return results;
+    }
+
+    public Task<IReadOnlyList<PlayerPresenceDto>> ListLobbyPlayers() =>
+        gameSession.ListLobbyPlayersAsync(Context.ConnectionAborted);
+
+    public IReadOnlyList<LobbyChatMessageDto> ListLobbyMessages() =>
+        lobbyChat.ListMessages();
+
+    public async Task<LobbyChatMessageDto> SendLobbyChat(SendLobbyChatRequestDto request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var playerId = GetPlayerId();
+        if (playerId is null)
+        {
+            throw new HubException("NotConnected");
+        }
+
+        LobbyChatMessageDto message;
+        try
+        {
+            message = lobbyChat.AddMessage(playerId, GetDisplayName(), request.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new HubException(ex.Message);
+        }
+
+        await Clients.All.LobbyChatMessage(message);
+        return message;
     }
 
     public async Task<ConnectedDto> GetConnectionInfo()

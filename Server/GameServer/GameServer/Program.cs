@@ -26,6 +26,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IMapProvider, MapCatalog>();
 builder.Services.AddSingleton<IGameEngine, GameEngine>();
+builder.Services.AddSingleton<ILobbyChatService, LobbyChatService>();
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddSingleton<IGameSessionService>(sp => sp.GetRequiredService<GameService>());
 builder.Services.AddHostedService<MatchTimeoutService>();

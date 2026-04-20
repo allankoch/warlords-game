@@ -1,68 +1,99 @@
 # Next Session Pickup
 
-## Current state
+## Where We Are
 
-- The server is now seat-based internally.
-- Grace expiry no longer removes units. It unclaims the seat and pauses the match.
-- Turn progression and actions are blocked while any required seat is unclaimed.
-- Same-identity reconnect within grace still works.
-- A new identity can no longer implicitly take the first open seat in an in-progress match.
-- Explicit seat claim is now implemented on the server with `ClaimSeat`.
-- Server tests are green: `51/51`.
+- The client now has separate screens for the global lobby, match lobby, and in-battle game view.
+- The lobby has a simplified sign-in flow:
+  - one `Enter lobby` action when not signed in
+  - one `Log out` action when signed in
+- Lobby-wide chat is implemented end to end.
+- Lobby-wide player presence is implemented end to end.
+- `Create match` now opens in a modal instead of living inline in the page.
+- Match summaries were improved to show:
+  - battle ID as the primary title
+  - host name
+  - map name
+  - max players
+  - seats left
+  - paused-for-seat-claim state when relevant
+- Match summaries now calculate remaining seats correctly for fresh lobby matches. A new 2-player lobby match no longer incorrectly shows `0 seats left`.
+- The lobby player list hides internal player IDs behind a hover/focus info icon.
+- The `Current lobby match` player list also hides internal player IDs behind the same info icon.
+- The create-match modal now uses a dropdown for map selection instead of free text.
+- The only current map option exposed in the UI is `Demo 10x10`.
+- A manual `Refresh` button now exists directly in the `Matches` section.
 
-## What changed most recently
+## Visual State Of The Lobby
 
-- `JoinGame` now returns `SeatClaimRequired` if an in-progress match has an unclaimed seat and the joining identity does not already own a seat.
-- `ClaimSeat(gameId, seatId)` now exists in the protocol, service, hub, and engine.
-- Explicit claim successfully rebinds the seat while preserving that seat's units on the board.
+The lobby is now in a decent prototype state:
 
-## Next task
+- match cards have better hierarchy
+- battle IDs are emphasized visually
+- map + host metadata are visually de-emphasized
+- the lobby works as a usable prototype for testing and iteration
 
-Build the client-side seat claim flow.
+This is still not the intended final art direction. It is a refined functional prototype.
 
-### Goal
-
-When a player opens or resumes a paused match with unclaimed seats, the browser should:
-
-- show that the match is paused for seat claim
-- list claimable seats
-- let the player choose which seat to take over
-- call the new `ClaimSeat` hub method
-- resume normal play once all required seats are claimed
-
-## Files to start with
+## Biggest Files Touched Recently
 
 - `C:\Code\Warlords\Client\src\App.tsx`
+- `C:\Code\Warlords\Client\src\App.css`
 - `C:\Code\Warlords\Client\src\lib\gameHub.ts`
 - `C:\Code\Warlords\Client\src\types\game.ts`
 - `C:\Code\Warlords\Server\GameServer\GameServer.Protocol\GameHubDtos.cs`
+- `C:\Code\Warlords\Server\GameServer\GameServer\Game\GameService.cs`
 - `C:\Code\Warlords\Server\GameServer\GameServer\Networking\GameHub.cs`
+- `C:\Code\Warlords\Server\GameServer\GameServer\Networking\LobbyChatService.cs`
+- `C:\Code\Warlords\Server\GameServer\GameServer\Program.cs`
+- `C:\Code\Warlords\Server\GameServer\GameServer.Tests\GameServiceTests.cs`
+- `C:\Code\Warlords\Server\GameServer\GameServer.Tests\GameHubTests.cs`
 
-## Recommended order
+## Validation Status
 
-1. Update the client TypeScript types for `ClaimSeatRequestDto`, `ClaimSeatResultDto`, `SeatStatusDto`, and paused-seat-claim state.
-2. Add a `claimSeat` method in `gameHub.ts`.
-3. Update `App.tsx` so `SeatClaimRequired` becomes a guided flow instead of a generic error.
-4. Render a simple seat-picker when `gameState.isPausedForSeatClaim` is true and there are unclaimed active seats.
-5. After claim succeeds, refresh local UI state from the returned `GameState`.
-6. Add client-side activity messages like `Bob claimed the white seat.`
+- Client build passed repeatedly with `npm run build` in `C:\Code\Warlords\Client`.
+- Server test runs are currently blocked intermittently by a live `GameServer.exe` process locking `GameServer.Protocol.dll`.
+- The latest blocked PID seen was `21828`.
+- This looked like a process-lock issue, not a code failure.
 
-## Validation to run next session
+## Important Product Direction Decided
 
-- `dotnet test C:\Code\Warlords\Server\GameServer\GameServer.sln`
-- `npm run build` in `C:\Code\Warlords\Client`
-- manual browser test:
-  - start a 2-player match
-  - let one player exceed disconnect grace
-  - verify the match pauses
-  - open the missing player's browser or a new player identity
-  - verify the UI offers seat selection
-  - claim the correct seat
-  - verify the match unpauses and continues with the preserved board state
+- The current client is still a prototype we are refining, not the final visual game UI.
+- The lobby may be a good candidate for being rebuilt or reskinned from a downloaded HTML template.
+- A dashboard-style template may help for the lobby if it is used as layout/styling scaffolding only.
+- A dashboard-style template should not define the battle screen visual language.
+- Better template direction for the lobby:
+  - game portal
+  - community hub
+  - war room / tavern / strategy gathering place
+  - not corporate analytics or admin dashboard visuals
 
-## Important constraint
+## Most Likely Next Step Tomorrow
 
-Do not reintroduce implicit seat takeover on `JoinGame`. The intended model now is:
+Pick or review a candidate HTML template for the lobby.
 
-- `JoinGame` for reconnect / lobby join
-- `ClaimSeat` for explicit takeover of an unclaimed active seat
+### Recommended flow
+
+1. Find a template that is useful for layout and atmosphere, not for app logic.
+2. Prefer templates with:
+   - strong panel layout
+   - chat-friendly structure
+   - match-list / card-friendly structure
+   - modal support
+   - darker or atmospheric styling that can bend toward fantasy
+3. Avoid templates that feel like business analytics dashboards.
+4. Once a candidate exists, adapt the template into the current React client instead of starting over.
+
+## If Continuing Without A Template
+
+If no template is chosen, the next logical UI work would be:
+
+1. continue refining the lobby hierarchy and spacing
+2. reduce remaining debug-like text in the lobby and match lobby
+3. improve the `Current lobby match` presentation
+4. start sketching the real battle screen separately from the lobby
+
+## Good First Step Next Session
+
+- open the chosen template or screenshots
+- decide whether it should be integrated directly or only used as visual reference
+- then start adapting the lobby shell while preserving the current logic

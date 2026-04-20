@@ -8,4 +8,6 @@ public interface IGameClient
     Task ActionRejected(ActionRejectedDto rejected);
     Task PlayerJoined(PlayerJoinedDto joined);
     Task PlayerLeft(PlayerLeftDto left);
+    Task LobbyChatMessage(LobbyChatMessageDto message);
+    Task LobbyPlayersUpdated(IReadOnlyList<PlayerPresenceDto> players);
 }

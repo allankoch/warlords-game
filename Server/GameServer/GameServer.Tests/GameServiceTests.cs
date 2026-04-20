@@ -566,6 +566,87 @@ public sealed class GameServiceTests
     }
 
     [TestMethod]
+    public async Task ListMatchesAsync_ReturnsMostRecentMatchesWithPausedSeatClaimDetails()
+    {
+        var engine = new GameEngine(new TestMapProvider());
+        var mapProvider = Substitute.For<IMapProvider>();
+        mapProvider.Get("test-map").Returns(new TestMapProvider().Get("test-map"));
+
+        var identityStore = Substitute.For<IIdentityStore>();
+        identityStore.ResolveAsync(null, "Allan", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new PlayerIdentity("p1", "token-1", "Allan", null)));
+
+        var pausedSnapshot = MatchSnapshotMapper.Serialize(new MatchSnapshotDto(
+            SchemaVersion: 2,
+            GameId: "game-new",
+            HostPlayerId: "p1",
+            Phase: MatchPhases.InProgress,
+            Settings: new MatchSettingsDto("test-map", 2, 2, false, 0, 120),
+            Turns: new TurnStateDto(["white", "red"], 0, true, 1),
+            TurnEndsAtUnixSeconds: null,
+            LastAction: null,
+            Players:
+            [
+                new PlayerPresenceDto("p2", true, "Bob")
+            ],
+            Ready: [],
+            Slots: [],
+            Entities: [],
+            Seats:
+            [
+                new SeatSnapshotDto("white", null, "White", false, false, null, true),
+                new SeatSnapshotDto("red", "p2", "Red", true, false, null, true)
+            ]));
+
+        var lobbySnapshot = MatchSnapshotMapper.Serialize(new MatchSnapshotDto(
+            SchemaVersion: 2,
+            GameId: "game-old",
+            HostPlayerId: "p1",
+            Phase: MatchPhases.Lobby,
+            Settings: new MatchSettingsDto("test-map", 2, 2, false, 0, 120),
+            Turns: new TurnStateDto(["white", "red"], 0, false, 0),
+            TurnEndsAtUnixSeconds: null,
+            LastAction: null,
+            Players:
+            [
+                new PlayerPresenceDto("p1", true, "Allan")
+            ],
+            Ready: [],
+            Slots: [],
+            Entities: [],
+            Seats:
+            [
+                new SeatSnapshotDto("white", "p1", "White", true, false, null, true),
+                new SeatSnapshotDto("red", null, "Red", false, false, null, true)
+            ]));
+
+        var matchStore = Substitute.For<IMatchStore>();
+        matchStore.ListSnapshotsAsync(5, Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new PersistedMatchSnapshot(2, "game-old", 1, 0, new DateTimeOffset(2026, 4, 20, 10, 0, 0, TimeSpan.Zero), lobbySnapshot),
+                new PersistedMatchSnapshot(2, "game-new", 3, 12, new DateTimeOffset(2026, 4, 20, 11, 0, 0, TimeSpan.Zero), pausedSnapshot)
+            ]);
+
+        var persistence = Substitute.For<IGamePersistence>();
+        var service = new GameService(engine, mapProvider, identityStore, matchStore, persistence);
+
+        await service.ConnectAsync("c1", null, "Allan", CancellationToken.None);
+
+        var matches = await service.ListMatchesAsync("c1", 5, CancellationToken.None);
+
+        Assert.AreEqual(2, matches.Count);
+        Assert.AreEqual("game-new", matches[0].GameId);
+        Assert.IsTrue(matches[0].IsPausedForSeatClaim);
+        Assert.AreEqual(2, matches[0].MaxPlayers);
+        Assert.AreEqual(1, matches[0].OpenSeatCount);
+        Assert.AreEqual("game-old", matches[1].GameId);
+        Assert.IsFalse(matches[1].IsPausedForSeatClaim);
+        Assert.AreEqual(2, matches[1].MaxPlayers);
+        Assert.AreEqual(1, matches[1].OpenSeatCount);
+    }
+
+    [TestMethod]
     public async Task ClaimSeatAsync_RejectsAlreadyClaimedSeat()
     {
         var engine = new GameEngine(new TestMapProvider());

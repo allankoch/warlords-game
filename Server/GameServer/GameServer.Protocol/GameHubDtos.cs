@@ -19,6 +19,8 @@ public record JoinByCodeRequestDto(string Code);
 
 public record ReadyUpRequestDto(bool IsReady);
 
+public record SendLobbyChatRequestDto(string Message);
+
 public record ActionAcceptedDto(string ActionId, int StateVersion, long ServerActionSequence);
 
 public record ActionRejectedDto(string ActionId, string Reason, int StateVersion, long ServerActionSequence);
@@ -26,6 +28,13 @@ public record ActionRejectedDto(string ActionId, string Reason, int StateVersion
 public record PlayerJoinedDto(string GameId, string PlayerId, string? DisplayName = null);
 
 public record PlayerLeftDto(string GameId, string PlayerId, string? DisplayName = null);
+
+public record LobbyChatMessageDto(
+    string MessageId,
+    string PlayerId,
+    string? DisplayName,
+    string Message,
+    DateTimeOffset SentAt);
 
 public record PlayerPresenceDto(string PlayerId, bool IsConnected, string? DisplayName = null);
 
@@ -117,7 +126,12 @@ public record MatchSummaryDto(
     string GameId,
     string MapId,
     string Phase,
+    bool IsPausedForSeatClaim,
+    string HostPlayerId,
+    string? HostDisplayName,
+    int MaxPlayers,
     int Version,
     long ServerActionSequence,
     int PlayerCount,
+    int OpenSeatCount,
     DateTimeOffset SavedAt);

@@ -2,14 +2,19 @@ import * as signalR from '@microsoft/signalr'
 import type {
   ActionAcceptedDto,
   ActionRejectedDto,
+  ClaimSeatRequestDto,
+  ClaimSeatResultDto,
   ConnectedDto,
   CreateMatchRequestDto,
   GameStateDto,
+  LobbyChatMessageDto,
   MatchSummaryDto,
   PlayerActionDto,
   PlayerJoinedDto,
   PlayerLeftDto,
+  PlayerPresenceDto,
   ReadyUpRequestDto,
+  SendLobbyChatRequestDto,
   JoinGameResultDto,
   ResumeGameResultDto,
 } from '../types/game'
@@ -21,6 +26,8 @@ export interface HubCallbacks {
   onActionRejected: (rejected: ActionRejectedDto) => void
   onPlayerJoined: (joined: PlayerJoinedDto) => void
   onPlayerLeft: (left: PlayerLeftDto) => void
+  onLobbyChatMessage: (message: LobbyChatMessageDto) => void
+  onLobbyPlayersUpdated: (players: PlayerPresenceDto[]) => void
   onClosed: (error?: Error) => void
   onReconnecting: (error?: Error) => void
   onReconnected: () => void
@@ -50,6 +57,8 @@ export class GameHubClient {
     connection.on('ActionRejected', callbacks.onActionRejected)
     connection.on('PlayerJoined', callbacks.onPlayerJoined)
     connection.on('PlayerLeft', callbacks.onPlayerLeft)
+    connection.on('LobbyChatMessage', callbacks.onLobbyChatMessage)
+    connection.on('LobbyPlayersUpdated', callbacks.onLobbyPlayersUpdated)
     connection.onclose(callbacks.onClosed)
     connection.onreconnecting(callbacks.onReconnecting)
     connection.onreconnected(() => callbacks.onReconnected())
@@ -74,8 +83,20 @@ export class GameHubClient {
     return this.requireConnection().invoke<ConnectedDto>('GetConnectionInfo')
   }
 
+  async listLobbyMessages() {
+    return this.requireConnection().invoke<LobbyChatMessageDto[]>('ListLobbyMessages')
+  }
+
+  async listLobbyPlayers() {
+    return this.requireConnection().invoke<PlayerPresenceDto[]>('ListLobbyPlayers')
+  }
+
   async createMatch(request: CreateMatchRequestDto) {
     await this.requireConnection().invoke('CreateMatch', request)
+  }
+
+  async sendLobbyChat(request: SendLobbyChatRequestDto) {
+    return this.requireConnection().invoke<LobbyChatMessageDto>('SendLobbyChat', request)
   }
 
   async joinGame(gameId: string) {
@@ -84,6 +105,10 @@ export class GameHubClient {
 
   async resumeGame(gameId: string) {
     return this.requireConnection().invoke<ResumeGameResultDto>('ResumeGame', { gameId })
+  }
+
+  async claimSeat(request: ClaimSeatRequestDto) {
+    return this.requireConnection().invoke<ClaimSeatResultDto>('ClaimSeat', request)
   }
 
   async leaveGame() {
